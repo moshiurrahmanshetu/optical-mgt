@@ -1,7 +1,7 @@
 # VisionCare Optical Shop Management CMS (`optical-mgt`)
-### Phase 1 + Phase 2 + Phase 3 + Phase 4 + Phase 5: Complete Optical Shop Management CMS
+### Complete Optical Shop Management, Clinical Dispensary & Business Intelligence Suite
 
-A clean, robust, and lightweight Optical Shop Management CMS built in **Raw PHP 8+** and **MySQL** with a solid-color, non-gradient **Bootstrap 5** administration panel.
+A clean, robust, and lightweight Optical Shop Management CMS built in **Raw PHP 8+** and **MySQL** with a solid-color, non-gradient **Bootstrap 5** administration panel and interactive **Chart.js** analytics.
 
 ---
 
@@ -11,6 +11,7 @@ A clean, robust, and lightweight Optical Shop Management CMS built in **Raw PHP 
 - **Database**: MySQL 5.7+ / 8.0+ / MariaDB via **PDO** (Prepared Statements, Transactions, UTF-8 `utf8mb4`)
 - **Frontend**: HTML5, CSS3 (Solid-color clinical styling, zero gradients), Vanilla JavaScript
 - **UI Framework**: Bootstrap 5.3.3 & Bootstrap Icons 1.11.3
+- **Data Visualizations**: Chart.js 4.4.1 (Clean solid clinical palette, zero gradients)
 - **Web Server**: Apache / XAMPP Compatible
 
 ---
@@ -49,14 +50,15 @@ optical-mgt/
 │   ├── 04_products_schema.sql      # Product Catalog schema (categories, products)
 │   ├── 04_products_seed.sql        # Sample catalog records (Frames, Lenses, Accessories)
 │   ├── 05_orders_schema.sql        # Order Management schema (orders, order_items, payments)
-│   └── 05_orders_seed.sql          # Sample orders, item snapshots, advance & final payments
+│   ├── 05_orders_seed.sql          # Sample orders, item snapshots, advance & final payments
+│   └── 06_reports_schema.sql       # Reporting indexing reference & summary verification
 │
 ├── includes/
 │   ├── header.php              # Common HTML head, metadata, and CSS links
 │   ├── navbar.php              # Top navbar with user dropdown and sidebar toggle
 │   ├── sidebar.php             # Responsive collapsible sidebar navigation (Active routes)
 │   ├── footer.php              # Common footer, Bootstrap scripts, closing tags
-│   ├── functions.php           # Security & formatting helpers (CSRF, XSS, code gen, order helpers)
+│   ├── functions.php           # Security & formatting helpers (CSRF, XSS, code gen, order & report helpers)
 │   └── flash.php               # Session-based alert notifications
 │
 ├── modules/
@@ -84,15 +86,26 @@ optical-mgt/
 │   │   ├── toggle-status.php   # POST status toggle handler (Active/Inactive)
 │   │   └── delete.php          # POST delete product handler (Administrator only)
 │   │
-│   └── orders/                 # Order Management & Billing Module (Phase 5)
-│       ├── index.php           # Orders list with search, status/payment/date filters, KPI metrics
-│       ├── create.php          # Order creation (Customer, Rx, dynamic items, pricing, initial payment)
-│       ├── view.php            # Detailed order view with snapshots, financials, payment history
-│       ├── edit.php            # Controlled pending order editor with pricing safeguards
-│       ├── update-status.php   # Status transition handler (Stock deduction & cancellation restoration)
-│       ├── add-payment.php     # Record additional payments & auto-recalculate due balance
-│       ├── delete.php          # Delete pending order handler (Administrator only)
-│       └── print.php           # Print-friendly invoice & dispensing slip (@media print)
+│   ├── orders/                 # Order Management & Billing Module (Phase 5)
+│   │   ├── index.php           # Orders list with search, status/payment/date filters, KPI metrics
+│   │   ├── create.php          # Order creation (Customer, Rx, dynamic items, pricing, initial payment)
+│   │   ├── view.php            # Detailed order view with snapshots, financials, payment history
+│   │   ├── edit.php            # Controlled pending order editor with pricing safeguards
+│   │   ├── update-status.php   # Status transition handler (Stock deduction & cancellation restoration)
+│   │   ├── add-payment.php     # Record additional payments & auto-recalculate due balance
+│   │   ├── delete.php          # Delete pending order handler (Administrator only)
+│   │   └── print.php           # Print-friendly invoice & dispensing slip (@media print)
+│   │
+│   └── reports/                # Reports & Analytics Module (Phase 6)
+│       ├── index.php           # Reports & Analytics Hub dashboard with time-period filters & KPIs
+│       ├── sales.php           # Comprehensive sales & revenue report (Subtotal, discounts, net sales)
+│       ├── payments.php        # Collections report by payment method (Cash, Card, Mobile, Bank)
+│       ├── due.php             # Outstanding customer dues report with instant collection actions
+│       ├── orders.php          # Order lifecycle workflow & status distribution report
+│       ├── customers.php       # Patient demographics, growth trends & lifetime spenders report
+│       ├── products.php        # Inventory stock health, cost & retail valuation, replenishment alerts
+│       ├── prescriptions.php   # Clinical examination log & refraction records report (Admin/Optician)
+│       └── print.php           # Universal clean printable view & PDF export layout for all report types
 │
 ├── uploads/
 │   └── avatars/
@@ -100,8 +113,8 @@ optical-mgt/
 │       └── .gitkeep
 │
 ├── .htaccess                   # Root Apache security config
-├── index.php                   # Dashboard with live Financial, Order, Customer & Catalog KPIs
-└── README.md                   # System documentation
+├── index.php                   # Executive Dashboard with live Financial, Workflow & Inventory Charts
+└── README.md                   # Complete system documentation
 ```
 
 ---
@@ -120,13 +133,14 @@ Open **phpMyAdmin** (`http://localhost/phpmyadmin/`) or MySQL CLI:
    - **Step 3**: `database/03_prescriptions_schema.sql` (Creates `prescriptions` table with FKs)
    - **Step 4**: `database/04_products_schema.sql` (Creates `categories` and `products` tables with FKs)
    - **Step 5**: `database/05_orders_schema.sql` (Creates `orders`, `order_items`, and `payments` tables with FKs)
+   - **Step 6**: `database/06_reports_schema.sql` (Verifies performance indexing for reporting queries)
 
 3. Import SQL seed files:
-   - **Step 6**: `database/01_auth_seed.sql` (Inserts system roles and seed user accounts)
-   - **Step 7**: `database/02_customers_seed.sql` (Inserts realistic sample customer records)
-   - **Step 8**: `database/03_prescriptions_seed.sql` (Inserts realistic optical refraction records)
-   - **Step 9**: `database/04_products_seed.sql` (Inserts sample categories & optical products)
-   - **Step 10**: `database/05_orders_seed.sql` (Inserts sample orders, line item snapshots, payments)
+   - **Step 7**: `database/01_auth_seed.sql` (Inserts system roles and seed user accounts)
+   - **Step 8**: `database/02_customers_seed.sql` (Inserts realistic sample customer records)
+   - **Step 9**: `database/03_prescriptions_seed.sql` (Inserts realistic optical refraction records)
+   - **Step 10**: `database/04_products_seed.sql` (Inserts sample categories & optical products)
+   - **Step 11**: `database/05_orders_seed.sql` (Inserts sample orders, line item snapshots, payments)
 
 ---
 
@@ -134,11 +148,32 @@ Open **phpMyAdmin** (`http://localhost/phpmyadmin/`) or MySQL CLI:
 
 All passwords are encrypted with PHP's `password_hash(..., PASSWORD_BCRYPT)`:
 
-| Role | Username | Email | Password | Customer | Prescription | Products | Orders & Billing |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Administrator** | `admin` | `admin@opticalmgt.com` | `Admin@123` | Full CRUD | Full CRUD | Full CRUD + Margins | Full CRUD, Status, Payments, Delete Pending, Print |
-| **Optician** | `optician` | `optician@opticalmgt.com` | `Admin@123` | View, Create, Edit | Full CRUD | View, Create, Edit | View, Create, Edit Pending, Status, Print |
-| **Sales Staff** | `sales` | `sales@opticalmgt.com` | `Admin@123` | View, Create, Edit | View Only | View, Create, Edit | View, Create, Edit Pending, Payments, Status, Print |
+| Role | Username | Email | Password | Customers | Prescriptions | Products | Orders & Billing | Reports & Analytics |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Administrator** | `admin` | `admin@opticalmgt.com` | `Admin@123` | Full CRUD | Full CRUD | Full CRUD + Margins | Full CRUD, Status, Payments, Delete Pending, Print | Full Access (All 8 Reports + Print/PDF) |
+| **Optician** | `optician` | `optician@opticalmgt.com` | `Admin@123` | View, Create, Edit | Full CRUD | View, Create, Edit | View, Create, Edit Pending, Status, Print | Full Access (Including Clinical Rx Logs) |
+| **Sales Staff** | `sales` | `sales@opticalmgt.com` | `Admin@123` | View, Create, Edit | View Only | View, Create, Edit | View, Create, Edit Pending, Payments, Status, Print | Standard Reports (Sales, Payments, Due, Orders, Products, Customers) |
+
+---
+
+## 📊 Analytics & Reporting Hub (Phase 6)
+
+The application provides real-time business intelligence calculated directly from MySQL transactions:
+
+1. **Dashboard Visualizations (`index.php`)**:
+   - **Revenue & Collections Trend**: 6-month comparative bar chart contrasting invoiced sales with actual realized cash receipts.
+   - **Order Lifecycle Donut**: Color-coded distribution across Pending, Confirmed, Processing, Ready, Delivered, and Cancelled stages.
+   - **Recent Transactions Ledger**: Side-by-side feeds for latest customer orders and latest payment receipts.
+
+2. **Specialized Report Suites (`modules/reports/`)**:
+   - **Sales Report (`sales.php`)**: Net sales calculations, discounts, gross volume, search, and date filters.
+   - **Payments Report (`payments.php`)**: Collections ledger broken down by payment methods (Cash, Card, Mobile Banking, Bank Transfer).
+   - **Due Tracking Report (`due.php`)**: Outstanding customer receivables with direct collection shortcuts.
+   - **Order Workflow Report (`orders.php`)**: Complete lifecycle tracking and volume per workflow stage.
+   - **Customer Growth Report (`customers.php`)**: Patient acquisition trends, demographic filters, and top spending clients.
+   - **Inventory & Valuation Report (`products.php`)**: Stock valuation at cost and retail, stock replenishment alerts.
+   - **Clinical Rx Report (`prescriptions.php`)**: Refraction examination audit log gated strictly to Admin and Opticians.
+   - **Universal Print & PDF Layout (`print.php`)**: Clean A4 printable layout with verification signatures and `@media print` styling.
 
 ---
 

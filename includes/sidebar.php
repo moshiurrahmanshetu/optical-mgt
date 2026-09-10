@@ -8,11 +8,12 @@ $currentScript = basename($_SERVER['SCRIPT_NAME'] ?? '');
 $currentDir = basename(dirname($_SERVER['SCRIPT_NAME'] ?? ''));
 
 // Determine active items
-$isDashboard     = ($currentScript === 'index.php' && $currentDir !== 'auth' && $currentDir !== 'customers' && $currentDir !== 'prescriptions' && $currentDir !== 'products' && $currentDir !== 'orders');
+$isDashboard     = ($currentScript === 'index.php' && $currentDir !== 'auth' && $currentDir !== 'customers' && $currentDir !== 'prescriptions' && $currentDir !== 'products' && $currentDir !== 'orders' && $currentDir !== 'reports');
 $isCustomers     = (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/customers/') !== false);
 $isPrescriptions = (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/prescriptions/') !== false);
 $isProducts      = (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/products/') !== false);
 $isOrders        = (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/orders/') !== false);
+$isReports       = (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/reports/') !== false);
 $isProfile       = ($currentScript === 'profile.php' || $currentScript === 'update-profile.php');
 $isPassword      = ($currentScript === 'change-password.php');
 ?>
@@ -71,17 +72,9 @@ $isPassword      = ($currentScript === 'change-password.php');
         </a>
       </li>
       <li class="nav-item">
-        <a href="javascript:void(0);" class="nav-link disabled-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Payments & Reports (Phase 2)">
+        <a href="<?= BASE_URL; ?>modules/reports/index.php" class="nav-link <?= $isReports ? 'active' : ''; ?>" data-bs-toggle="tooltip" data-bs-placement="right" title="Reports & Analytics">
           <i class="bi bi-bar-chart-line"></i>
           <span class="nav-link-text">Reports</span>
-          <span class="badge-soon">Soon</span>
-        </a>
-      </li>
-      <li class="nav-item">
-        <a href="javascript:void(0);" class="nav-link disabled-link" data-bs-toggle="tooltip" data-bs-placement="right" title="User Management (Phase 2)">
-          <i class="bi bi-shield-person"></i>
-          <span class="nav-link-text">Users</span>
-          <span class="badge-soon">Soon</span>
         </a>
       </li>
     </ul>

@@ -79,6 +79,27 @@ function redirect(string $path): void {
 }
 
 /**
+ * Generate full URL based on BASE_URL
+ *
+ * @param string $path
+ * @return string
+ */
+function baseUrl(string $path = ''): string {
+    return BASE_URL . ltrim($path, '/');
+}
+
+/**
+ * Alias for formatMoney
+ *
+ * @param float|int|string|null $amount
+ * @param string $currency
+ * @return string
+ */
+function formatCurrency($amount, string $currency = '$'): string {
+    return formatMoney($amount, $currency);
+}
+
+/**
  * Get user initials from full name
  *
  * @param string $name
@@ -444,4 +465,102 @@ function getPaymentStatusBadge($grandTotal, $paidAmount, $dueAmount): string {
 
     return '<span class="badge bg-danger text-white d-inline-flex align-items-center gap-1"><i class="bi bi-exclamation-circle-fill"></i> Unpaid</span>';
 }
+
+/**
+ * Parse standard date period string into from/to date strings and human-readable label
+ *
+ * @param string $period today | yesterday | this_week | this_month | last_month | this_year | custom | all
+ * @param string $customFrom
+ * @param string $customTo
+ * @return array ['from' => ?string, 'to' => ?string, 'label' => string, 'period' => string]
+ */
+function parseDatePeriod(string $period, string $customFrom = '', string $customTo = ''): array {
+    $today = date('Y-m-d');
+    
+    switch ($period) {
+        case 'today':
+            return [
+                'from'   => $today,
+                'to'     => $today,
+                'label'  => 'Today (' . date('M d, Y') . ')',
+                'period' => 'today'
+            ];
+            
+        case 'yesterday':
+            $yest = date('Y-m-d', strtotime('-1 day'));
+            return [
+                'from'   => $yest,
+                'to'     => $yest,
+                'label'  => 'Yesterday (' . date('M d, Y', strtotime('-1 day')) . ')',
+                'period' => 'yesterday'
+            ];
+            
+        case 'this_week':
+            $monday = date('Y-m-d', strtotime('monday this week'));
+            return [
+                'from'   => $monday,
+                'to'     => $today,
+                'label'  => 'This Week (' . date('M d', strtotime($monday)) . ' - ' . date('M d, Y') . ')',
+                'period' => 'this_week'
+            ];
+            
+        case 'this_month':
+            $firstDay = date('Y-m-01');
+            return [
+                'from'   => $firstDay,
+                'to'     => $today,
+                'label'  => 'This Month (' . date('M Y') . ')',
+                'period' => 'this_month'
+            ];
+            
+        case 'last_month':
+            $firstLastMonth = date('Y-m-01', strtotime('first day of last month'));
+            $lastLastMonth  = date('Y-m-t', strtotime('last month'));
+            return [
+                'from'   => $firstLastMonth,
+                'to'     => $lastLastMonth,
+                'label'  => 'Last Month (' . date('M Y', strtotime('last month')) . ')',
+                'period' => 'last_month'
+            ];
+            
+        case 'this_year':
+            $firstDayYear = date('Y-01-01');
+            return [
+                'from'   => $firstDayYear,
+                'to'     => $today,
+                'label'  => 'This Year (' . date('Y') . ')',
+                'period' => 'this_year'
+            ];
+            
+        case 'custom':
+            $from = !empty($customFrom) ? $customFrom : null;
+            $to   = !empty($customTo) ? $customTo : null;
+            $label = 'Custom Range';
+            if ($from && $to) {
+                $label = date('M d, Y', strtotime($from)) . ' to ' . date('M d, Y', strtotime($to));
+            } elseif ($from) {
+                $label = 'From ' . date('M d, Y', strtotime($from));
+            } elseif ($to) {
+                $label = 'Until ' . date('M d, Y', strtotime($to));
+            } else {
+                $label = 'All Time';
+            }
+            return [
+                'from'   => $from,
+                'to'     => $to,
+                'label'  => $label,
+                'period' => 'custom'
+            ];
+            
+        case 'all':
+        default:
+            return [
+                'from'   => null,
+                'to'     => null,
+                'label'  => 'All Time',
+                'period' => 'all'
+            ];
+    }
+}
+
 

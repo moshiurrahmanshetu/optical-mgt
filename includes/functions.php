@@ -235,3 +235,46 @@ function formatDate(?string $date, string $format = 'M d, Y'): string {
     $ts = strtotime($date);
     return $ts ? date($format, $ts) : '<span class="text-muted">&mdash;</span>';
 }
+
+/**
+ * Format optical power values (SPH, CYL, ADD) with + sign for positive values
+ *
+ * @param float|string|null $val
+ * @return string
+ */
+function formatOpticalPower($val): string {
+    if ($val === null || $val === '' || !is_numeric($val)) {
+        return '<span class="text-muted">&mdash;</span>';
+    }
+    $num = (float) $val;
+    if ($num > 0) {
+        return '+' . number_format($num, 2);
+    }
+    return number_format($num, 2);
+}
+
+/**
+ * Format optical cylinder axis degrees (0–180°)
+ *
+ * @param int|string|null $axis
+ * @return string
+ */
+function formatAxis($axis): string {
+    if ($axis === null || $axis === '' || !is_numeric($axis)) {
+        return '<span class="text-muted">&mdash;</span>';
+    }
+    return (int) $axis . '&deg;';
+}
+
+/**
+ * Format pupillary distance (PD in mm)
+ *
+ * @param float|string|null $pd
+ * @return string
+ */
+function formatPd($pd): string {
+    if ($pd === null || $pd === '' || !is_numeric($pd)) {
+        return '<span class="text-muted">&mdash;</span>';
+    }
+    return number_format((float) $pd, 1) . ' mm';
+}

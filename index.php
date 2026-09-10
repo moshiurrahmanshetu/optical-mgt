@@ -15,6 +15,10 @@ $totalCustomers = (int) $pdo->query("SELECT COUNT(*) FROM customers")->fetchColu
 $newCustomersThisMonth = (int) $pdo->query("SELECT COUNT(*) FROM customers WHERE created_at >= DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')")->fetchColumn();
 $activeCustomers = (int) $pdo->query("SELECT COUNT(*) FROM customers WHERE status = 'active'")->fetchColumn();
 
+// Prescription Statistics
+$totalPrescriptions = (int) $pdo->query("SELECT COUNT(*) FROM prescriptions")->fetchColumn();
+$newPrescriptionsThisMonth = (int) $pdo->query("SELECT COUNT(*) FROM prescriptions WHERE prescription_date >= DATE_FORMAT(NOW(), '%Y-%m-01')")->fetchColumn();
+
 // Total Users Count
 $totalUsers = (int) $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
 
@@ -49,17 +53,19 @@ $recentCustStmt = $pdo->query("
 ");
 $recentCustomers = $recentCustStmt->fetchAll();
 
-// Fetch System Users List
-$usersStmt = $pdo->query("
-    SELECT u.id, u.name, u.username, u.email, u.phone, u.avatar, u.status, u.last_login_at, u.created_at,
-           r.name AS role_name, r.display_name AS role_display_name
-    FROM users u
-    JOIN roles r ON u.role_id = r.id
-    ORDER BY u.id ASC
+// Fetch Recent Prescriptions
+$recentRxStmt = $pdo->query("
+    SELECT p.id, p.prescription_date, p.right_sph, p.left_sph, p.doctor_name,
+           c.id AS customer_id, c.customer_code, c.full_name AS customer_name
+    FROM prescriptions p
+    JOIN customers c ON p.customer_id = c.id
+    ORDER BY p.prescription_date DESC, p.id DESC
+    LIMIT 5
 ");
-$allUsers = $usersStmt->fetchAll();
+$recentPrescriptions = $recentRxStmt->fetchAll();
 
 $user = currentUser();
+$canManageRx = hasRole(['admin', 'optician']);
 ?>
 
 <!-- Welcome Banner (Solid Slate) -->
@@ -71,17 +77,19 @@ $user = currentUser();
       </div>
       <h4 class="fw-bold m-0 text-white">Welcome, <?= e($user['name'] ?? 'User'); ?></h4>
       <p class="text-secondary small m-0 mt-1">
-        <?= APP_NAME; ?> &bull; Phase 2 Customer Module Active &bull;
+        <?= APP_NAME; ?> &bull; Phase 3 Prescription Module Active &bull;
         Last Session: <?= !empty($user['last_login_at']) ? date('M d, Y h:i A', strtotime($user['last_login_at'])) : 'Active Now'; ?>
       </p>
     </div>
-    <div class="d-flex gap-2">
-      <a href="<?= BASE_URL; ?>modules/customers/create.php" class="btn btn-primary btn-sm px-3">
-        <i class="bi bi-person-plus-fill me-1"></i> New Customer
+    <div class="d-flex flex-wrap gap-2">
+      <a href="<?= BASE_URL; ?>modules/customers/create.php" class="btn btn-outline-light btn-sm px-3">
+        <i class="bi bi-person-plus me-1"></i> New Customer
       </a>
-      <a href="<?= BASE_URL; ?>auth/profile.php" class="btn btn-outline-light btn-sm px-3">
-        <i class="bi bi-person me-1"></i> My Profile
-      </a>
+      <?php if ($canManageRx): ?>
+        <a href="<?= BASE_URL; ?>modules/prescriptions/create.php" class="btn btn-primary btn-sm px-3">
+          <i class="bi bi-file-earmark-plus me-1"></i> New Rx
+        </a>
+      <?php endif; ?>
     </div>
   </div>
 </div>
@@ -104,30 +112,32 @@ $user = currentUser();
     </div>
   </div>
 
+  <!-- Total Prescriptions -->
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card stat-info d-flex align-items-center justify-content-between">
+      <div>
+        <div class="text-muted small fw-semibold text-uppercase">Prescriptions (Rx)</div>
+        <h3 class="fw-bold text-dark m-0 mt-1"><?= $totalPrescriptions; ?></h3>
+        <small class="text-info fw-semibold" style="font-size: 0.75rem;">
+          <i class="bi bi-check2"></i> <?= $newPrescriptionsThisMonth; ?> this month
+        </small>
+      </div>
+      <div class="stat-icon icon-info">
+        <i class="bi bi-file-earmark-medical-fill"></i>
+      </div>
+    </div>
+  </div>
+
   <!-- Active Customers -->
   <div class="col-sm-6 col-xl-3">
     <div class="stat-card stat-success d-flex align-items-center justify-content-between">
       <div>
         <div class="text-muted small fw-semibold text-uppercase">Active Customers</div>
         <h3 class="fw-bold text-dark m-0 mt-1"><?= $activeCustomers; ?></h3>
-        <small class="text-muted" style="font-size: 0.75rem;">Ready for dispensing</small>
+        <small class="text-muted" style="font-size: 0.75rem;">Dispensing ready</small>
       </div>
       <div class="stat-icon icon-success">
         <i class="bi bi-person-check-fill"></i>
-      </div>
-    </div>
-  </div>
-
-  <!-- Opticians / Clinical Staff -->
-  <div class="col-sm-6 col-xl-3">
-    <div class="stat-card stat-info d-flex align-items-center justify-content-between">
-      <div>
-        <div class="text-muted small fw-semibold text-uppercase">Opticians</div>
-        <h3 class="fw-bold text-dark m-0 mt-1"><?= $opticianCount; ?></h3>
-        <small class="text-muted" style="font-size: 0.75rem;">Clinical practitioners</small>
-      </div>
-      <div class="stat-icon icon-info">
-        <i class="bi bi-eyeglasses"></i>
       </div>
     </div>
   </div>
@@ -136,9 +146,9 @@ $user = currentUser();
   <div class="col-sm-6 col-xl-3">
     <div class="stat-card stat-warning d-flex align-items-center justify-content-between">
       <div>
-        <div class="text-muted small fw-semibold text-uppercase">System Users</div>
+        <div class="text-muted small fw-semibold text-uppercase">System Staff</div>
         <h3 class="fw-bold text-dark m-0 mt-1"><?= $totalUsers; ?></h3>
-        <small class="text-muted" style="font-size: 0.75rem;"><?= $adminCount; ?> Admin &bull; <?= $salesCount; ?> Sales</small>
+        <small class="text-muted" style="font-size: 0.75rem;"><?= $opticianCount; ?> Optician &bull; <?= $adminCount; ?> Admin</small>
       </div>
       <div class="stat-icon icon-warning">
         <i class="bi bi-shield-person"></i>
@@ -147,10 +157,66 @@ $user = currentUser();
   </div>
 </div>
 
-<!-- Main Row: Recent Customers + System Staff -->
+<!-- Main Row: Recent Prescriptions + Recent Customers -->
 <div class="row g-4 mb-4">
+  <!-- Recent Prescriptions Widget -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+        <h6 class="m-0 fw-semibold text-dark">
+          <i class="bi bi-file-earmark-medical-fill me-2 text-primary"></i> Recent Prescriptions (Rx)
+        </h6>
+        <a href="<?= BASE_URL; ?>modules/prescriptions/index.php" class="btn btn-sm btn-outline-primary">
+          View All Rx
+        </a>
+      </div>
+      <div class="table-responsive">
+        <?php if (empty($recentPrescriptions)): ?>
+          <div class="p-4 text-center text-muted small">
+            No prescriptions recorded yet. <a href="<?= BASE_URL; ?>modules/prescriptions/create.php">Create first Rx</a>.
+          </div>
+        <?php else: ?>
+          <table class="table table-custom table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Rx #</th>
+                <th>Customer</th>
+                <th>Date</th>
+                <th>OD SPH</th>
+                <th>OS SPH</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($recentPrescriptions as $rx): ?>
+                <tr>
+                  <td>
+                    <span class="badge bg-light text-dark border font-monospace">#<?= $rx['id']; ?></span>
+                  </td>
+                  <td>
+                    <a href="<?= BASE_URL; ?>modules/customers/view.php?id=<?= $rx['customer_id']; ?>" class="fw-semibold text-dark text-decoration-none">
+                      <?= e($rx['customer_name']); ?>
+                    </a>
+                  </td>
+                  <td class="text-muted small"><?= date('M d', strtotime($rx['prescription_date'])); ?></td>
+                  <td class="small font-monospace"><?= formatOpticalPower($rx['right_sph']); ?></td>
+                  <td class="small font-monospace"><?= formatOpticalPower($rx['left_sph']); ?></td>
+                  <td class="text-end">
+                    <a href="<?= BASE_URL; ?>modules/prescriptions/view.php?id=<?= $rx['id']; ?>" class="btn btn-sm btn-outline-secondary py-0 px-2" title="View Rx">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        <?php endif; ?>
+      </div>
+    </div>
+  </div>
+
   <!-- Recent Customers Widget -->
-  <div class="col-lg-7">
+  <div class="col-lg-6">
     <div class="card shadow-sm h-100">
       <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
         <h6 class="m-0 fw-semibold text-dark">
@@ -208,67 +274,34 @@ $user = currentUser();
       </div>
     </div>
   </div>
-
-  <!-- System User Accounts Summary -->
-  <div class="col-lg-5">
-    <div class="card shadow-sm h-100">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-        <h6 class="m-0 fw-semibold text-dark">
-          <i class="bi bi-shield-lock-fill me-2 text-primary"></i> Authorized Staff
-        </h6>
-        <span class="badge bg-light text-dark border"><?= count($allUsers); ?> Users</span>
-      </div>
-      <div class="card-body p-0">
-        <ul class="list-group list-group-flush">
-          <?php foreach ($allUsers as $u): ?>
-            <?php $uAvatar = getAvatarUrl($u['avatar'], $u['name']); ?>
-            <li class="list-group-item d-flex align-items-center justify-content-between py-3 px-4">
-              <div class="d-flex align-items-center gap-3">
-                <img src="<?= e($uAvatar); ?>" alt="<?= e($u['name']); ?>" class="user-avatar-img">
-                <div>
-                  <div class="fw-semibold text-dark small"><?= e($u['name']); ?></div>
-                  <small class="text-muted">@<?= e($u['username']); ?></small>
-                </div>
-              </div>
-              <div>
-                <span class="badge badge-role <?= $u['role_name'] === 'admin' ? 'badge-role-admin' : ($u['role_name'] === 'optician' ? 'badge-role-optician' : 'badge-role-sales'); ?>">
-                  <?= e($u['role_display_name']); ?>
-                </span>
-              </div>
-            </li>
-          <?php endforeach; ?>
-        </ul>
-      </div>
-    </div>
-  </div>
 </div>
 
-<!-- Phase 3 & 4 Roadmap Summary -->
+<!-- Phase 4 Roadmap Summary -->
 <div class="card shadow-sm border-0 bg-light">
   <div class="card-body p-4">
     <div class="d-flex align-items-center gap-2 mb-2">
       <i class="bi bi-compass text-primary fs-5"></i>
-      <h6 class="m-0 fw-bold text-dark">Optical Management System &mdash; Phase 2 Completed</h6>
+      <h6 class="m-0 fw-bold text-dark">Optical Management System &mdash; Phase 3 Completed</h6>
     </div>
     <p class="text-muted small mb-3">
-      The Customer Management module is fully operational with unique customer codes, server-side validation, search, pagination, and RBAC controls. Upcoming modules will link directly to registered customers.
+      The Customer Management and Prescription Management modules are fully operational with complete OD/OS refraction history, multiple customer prescriptions, search, and role-based permissions.
     </p>
     <div class="row g-2">
       <div class="col-md-6">
         <div class="p-3 bg-white rounded border d-flex align-items-center gap-2">
-          <i class="bi bi-file-earmark-medical text-muted fs-5"></i>
+          <i class="bi bi-cart-check text-muted fs-5"></i>
           <div>
-            <div class="fw-semibold small text-dark">Prescription Module (Rx)</div>
-            <small class="text-muted" style="font-size: 0.72rem;">Scheduled for Phase 3 (SPH, CYL, Axis, PD)</small>
+            <div class="fw-semibold small text-dark">Orders & Dispensing Module</div>
+            <small class="text-muted" style="font-size: 0.72rem;">Scheduled for Phase 4 (Frames, Lenses, Invoicing)</small>
           </div>
         </div>
       </div>
       <div class="col-md-6">
         <div class="p-3 bg-white rounded border d-flex align-items-center gap-2">
-          <i class="bi bi-cart-check text-muted fs-5"></i>
+          <i class="bi bi-bar-chart-line text-muted fs-5"></i>
           <div>
-            <div class="fw-semibold small text-dark">Orders & Billing Module</div>
-            <small class="text-muted" style="font-size: 0.72rem;">Scheduled for Phase 4 (Frames, Lenses, Invoices)</small>
+            <div class="fw-semibold small text-dark">Reports & Analytics Module</div>
+            <small class="text-muted" style="font-size: 0.72rem;">Scheduled for Phase 5</small>
           </div>
         </div>
       </div>

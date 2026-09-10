@@ -8,10 +8,11 @@ $currentScript = basename($_SERVER['SCRIPT_NAME'] ?? '');
 $currentDir = basename(dirname($_SERVER['SCRIPT_NAME'] ?? ''));
 
 // Determine active items
-$isDashboard = ($currentScript === 'index.php' && $currentDir !== 'auth' && $currentDir !== 'customers');
-$isCustomers = (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/customers/') !== false);
-$isProfile   = ($currentScript === 'profile.php' || $currentScript === 'update-profile.php');
-$isPassword  = ($currentScript === 'change-password.php');
+$isDashboard     = ($currentScript === 'index.php' && $currentDir !== 'auth' && $currentDir !== 'customers' && $currentDir !== 'prescriptions');
+$isCustomers     = (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/customers/') !== false);
+$isPrescriptions = (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/prescriptions/') !== false);
+$isProfile       = ($currentScript === 'profile.php' || $currentScript === 'update-profile.php');
+$isPassword      = ($currentScript === 'change-password.php');
 ?>
 <aside class="app-sidebar" id="appSidebar">
   <!-- Brand Header -->
@@ -50,10 +51,9 @@ $isPassword  = ($currentScript === 'change-password.php');
         </a>
       </li>
       <li class="nav-item">
-        <a href="javascript:void(0);" class="nav-link disabled-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Prescriptions (Phase 2)">
+        <a href="<?= BASE_URL; ?>modules/prescriptions/index.php" class="nav-link <?= $isPrescriptions ? 'active' : ''; ?>" data-bs-toggle="tooltip" data-bs-placement="right" title="Prescriptions">
           <i class="bi bi-file-earmark-medical"></i>
           <span class="nav-link-text">Prescriptions</span>
-          <span class="badge-soon">Soon</span>
         </a>
       </li>
       <li class="nav-item">

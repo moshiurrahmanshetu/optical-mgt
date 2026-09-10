@@ -9,6 +9,7 @@ require_once __DIR__ . '/../../includes/header.php';
 
 $pdo = getDbConnection();
 $isAdmin = hasRole('admin');
+$canManageRx = hasRole(['admin', 'optician']);
 
 $id = (int) ($_GET['id'] ?? 0);
 if ($id <= 0) {
@@ -37,6 +38,17 @@ if (!empty($customer['date_of_birth']) && $customer['date_of_birth'] !== '0000-0
         $ageText = '';
     }
 }
+
+// Fetch Customer's Prescription History (Efficient single query)
+$rxStmt = $pdo->prepare("
+    SELECT p.*, u.name AS created_by_name
+    FROM prescriptions p
+    LEFT JOIN users u ON p.created_by = u.id
+    WHERE p.customer_id = :customer_id
+    ORDER BY p.prescription_date DESC, p.id DESC
+");
+$rxStmt->execute(['customer_id' => $id]);
+$prescriptions = $rxStmt->fetchAll();
 ?>
 
 <!-- Header Actions & Breadcrumbs -->
@@ -59,6 +71,13 @@ if (!empty($customer['date_of_birth']) && $customer['date_of_birth'] !== '0000-0
   </div>
   
   <div class="d-flex flex-wrap gap-2">
+    <!-- Add Prescription Button -->
+    <?php if ($canManageRx): ?>
+      <a href="<?= BASE_URL; ?>modules/prescriptions/create.php?customer_id=<?= $customer['id']; ?>" class="btn btn-success d-inline-flex align-items-center gap-1">
+        <i class="bi bi-file-earmark-plus-fill"></i> Add Prescription (Rx)
+      </a>
+    <?php endif; ?>
+
     <!-- Edit Button -->
     <a href="<?= BASE_URL; ?>modules/customers/edit.php?id=<?= $customer['id']; ?>" class="btn btn-primary d-inline-flex align-items-center gap-1">
       <i class="bi bi-pencil-square"></i> Edit Customer
@@ -147,7 +166,7 @@ if (!empty($customer['date_of_birth']) && $customer['date_of_birth'] !== '0000-0
     </div>
   </div>
 
-  <!-- Address, Notes & Future Modules Section -->
+  <!-- Address, Notes & Prescription History Section -->
   <div class="col-lg-8">
     <div class="row g-4">
       <!-- Address & Notes -->
@@ -177,43 +196,111 @@ if (!empty($customer['date_of_birth']) && $customer['date_of_birth'] !== '0000-0
         </div>
       </div>
 
-      <!-- Future Module Links: Prescriptions & Orders (Reserved Placeholders) -->
+      <!-- Live Prescription History Card -->
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+              <h6 class="m-0 fw-semibold text-dark">
+                <i class="bi bi-file-earmark-medical-fill me-1 text-primary"></i> Prescription History (Rx)
+              </h6>
+              <span class="badge bg-light text-dark border"><?= count($prescriptions); ?> Records</span>
+            </div>
+            <?php if ($canManageRx): ?>
+              <a href="<?= BASE_URL; ?>modules/prescriptions/create.php?customer_id=<?= $customer['id']; ?>" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+                <i class="bi bi-plus-circle"></i> Add Prescription
+              </a>
+            <?php endif; ?>
+          </div>
+
+          <?php if (empty($prescriptions)): ?>
+            <div class="card-body text-center py-4">
+              <div class="text-muted mb-2"><i class="bi bi-file-earmark-x fs-2 text-secondary"></i></div>
+              <h6 class="fw-semibold text-dark mb-1">No prescription history available</h6>
+              <p class="text-muted small mb-3">No optical examination records exist yet for this customer.</p>
+              <?php if ($canManageRx): ?>
+                <a href="<?= BASE_URL; ?>modules/prescriptions/create.php?customer_id=<?= $customer['id']; ?>" class="btn btn-sm btn-primary">
+                  <i class="bi bi-file-earmark-plus-fill me-1"></i> Record First Prescription
+                </a>
+              <?php endif; ?>
+            </div>
+          <?php else: ?>
+            <div class="table-responsive">
+              <table class="table table-custom table-hover align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>Rx #</th>
+                    <th>Exam Date</th>
+                    <th>Right Eye (OD)</th>
+                    <th>Left Eye (OS)</th>
+                    <th>Doctor</th>
+                    <th class="text-end">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($prescriptions as $rx): ?>
+                    <tr>
+                      <td>
+                        <span class="badge bg-light text-dark border font-monospace">#<?= $rx['id']; ?></span>
+                      </td>
+                      <td class="small fw-semibold text-dark">
+                        <?= date('M d, Y', strtotime($rx['prescription_date'])); ?>
+                      </td>
+                      <td class="small font-monospace">
+                        <?= formatOpticalPower($rx['right_sph']); ?> SPH
+                        <?php if ($rx['right_cyl'] !== null && $rx['right_cyl'] != 0): ?>
+                          / <?= formatOpticalPower($rx['right_cyl']); ?> CYL
+                        <?php endif; ?>
+                        <?php if (!empty($rx['right_axis'])): ?>
+                          x <?= $rx['right_axis']; ?>&deg;
+                        <?php endif; ?>
+                      </td>
+                      <td class="small font-monospace">
+                        <?= formatOpticalPower($rx['left_sph']); ?> SPH
+                        <?php if ($rx['left_cyl'] !== null && $rx['left_cyl'] != 0): ?>
+                          / <?= formatOpticalPower($rx['left_cyl']); ?> CYL
+                        <?php endif; ?>
+                        <?php if (!empty($rx['left_axis'])): ?>
+                          x <?= $rx['left_axis']; ?>&deg;
+                        <?php endif; ?>
+                      </td>
+                      <td class="small text-muted">
+                        <?= !empty($rx['doctor_name']) ? e($rx['doctor_name']) : '&mdash;'; ?>
+                      </td>
+                      <td class="text-end">
+                        <div class="btn-group btn-group-sm">
+                          <a href="<?= BASE_URL; ?>modules/prescriptions/view.php?id=<?= $rx['id']; ?>" class="btn btn-outline-secondary" title="View Prescription">
+                            <i class="bi bi-eye"></i>
+                          </a>
+                          <?php if ($canManageRx): ?>
+                            <a href="<?= BASE_URL; ?>modules/prescriptions/edit.php?id=<?= $rx['id']; ?>" class="btn btn-outline-secondary" title="Edit Prescription">
+                              <i class="bi bi-pencil"></i>
+                            </a>
+                          <?php endif; ?>
+                        </div>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <!-- Orders & Billing Section (Phase 4 Placeholder) -->
       <div class="col-12">
         <div class="card shadow-sm">
           <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
             <h6 class="m-0 fw-semibold text-dark">
-              <i class="bi bi-journal-medical me-2 text-primary"></i> Optical History & Prescriptions
+              <i class="bi bi-cart-check me-2 text-primary"></i> Orders & Billing History
             </h6>
-            <span class="badge bg-light text-secondary border">Phase 3 & 4 Modules</span>
+            <span class="badge bg-light text-secondary border">Phase 4 Module</span>
           </div>
           <div class="card-body p-4">
-            <div class="row g-3">
-              <!-- Prescriptions Section -->
-              <div class="col-md-6">
-                <div class="p-3 bg-light rounded border h-100">
-                  <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="fw-semibold text-dark small"><i class="bi bi-file-earmark-medical me-1 text-primary"></i> Prescriptions (Rx)</span>
-                    <span class="badge bg-secondary text-white" style="font-size: 0.65rem;">Phase 3</span>
-                  </div>
-                  <p class="text-muted small m-0">
-                    Spherical (SPH), Cylinder (CYL), Axis, and Pupillary Distance (PD) prescription tests for <?= e($customer['full_name']); ?> will link here upon Phase 3 completion.
-                  </p>
-                </div>
-              </div>
-
-              <!-- Orders Section -->
-              <div class="col-md-6">
-                <div class="p-3 bg-light rounded border h-100">
-                  <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="fw-semibold text-dark small"><i class="bi bi-cart-check me-1 text-primary"></i> Orders & Billing</span>
-                    <span class="badge bg-secondary text-white" style="font-size: 0.65rem;">Phase 4</span>
-                  </div>
-                  <p class="text-muted small m-0">
-                    Dispensed frames, prescription lenses, payment history, and invoices for this customer will appear here upon Phase 4 completion.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <p class="text-muted small m-0">
+              Dispensed frames, prescription lenses, payment history, and invoices for <?= e($customer['full_name']); ?> will link here upon Phase 4 completion.
+            </p>
           </div>
         </div>
       </div>

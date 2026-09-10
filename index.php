@@ -19,6 +19,25 @@ $activeCustomers = (int) $pdo->query("SELECT COUNT(*) FROM customers WHERE statu
 $totalPrescriptions = (int) $pdo->query("SELECT COUNT(*) FROM prescriptions")->fetchColumn();
 $newPrescriptionsThisMonth = (int) $pdo->query("SELECT COUNT(*) FROM prescriptions WHERE prescription_date >= DATE_FORMAT(NOW(), '%Y-%m-01')")->fetchColumn();
 
+// Product & Inventory Statistics (Phase 4)
+try {
+    $prodStats = $pdo->query("
+        SELECT 
+            COUNT(*) AS total_products,
+            SUM(CASE WHEN stock_quantity <= 0 THEN 1 ELSE 0 END) AS out_of_stock,
+            SUM(CASE WHEN stock_quantity > 0 AND stock_quantity <= low_stock_threshold THEN 1 ELSE 0 END) AS low_stock
+        FROM products 
+        WHERE status = 'active'
+    ")->fetch();
+    $totalProducts = (int)($prodStats['total_products'] ?? 0);
+    $outOfStockCount = (int)($prodStats['out_of_stock'] ?? 0);
+    $lowStockCount = (int)($prodStats['low_stock'] ?? 0);
+} catch (Exception $e) {
+    $totalProducts = 0;
+    $outOfStockCount = 0;
+    $lowStockCount = 0;
+}
+
 // Total Users Count
 $totalUsers = (int) $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
 
@@ -64,6 +83,17 @@ $recentRxStmt = $pdo->query("
 ");
 $recentPrescriptions = $recentRxStmt->fetchAll();
 
+// Fetch Recent or Low-Stock Products
+$recentProdStmt = $pdo->query("
+    SELECT p.id, p.product_code, p.name, p.brand, p.selling_price, p.stock_quantity, p.low_stock_threshold, p.status,
+           c.name AS category_name, c.type AS category_type
+    FROM products p
+    JOIN categories c ON p.category_id = c.id
+    ORDER BY p.id DESC
+    LIMIT 5
+");
+$recentProducts = $recentProdStmt->fetchAll();
+
 $user = currentUser();
 $canManageRx = hasRole(['admin', 'optician']);
 ?>
@@ -77,7 +107,7 @@ $canManageRx = hasRole(['admin', 'optician']);
       </div>
       <h4 class="fw-bold m-0 text-white">Welcome, <?= e($user['name'] ?? 'User'); ?></h4>
       <p class="text-secondary small m-0 mt-1">
-        <?= APP_NAME; ?> &bull; Phase 3 Prescription Module Active &bull;
+        <?= APP_NAME; ?> &bull; Phase 4 Product Catalog &amp; Inventory Active &bull;
         Last Session: <?= !empty($user['last_login_at']) ? date('M d, Y h:i A', strtotime($user['last_login_at'])) : 'Active Now'; ?>
       </p>
     </div>
@@ -86,10 +116,13 @@ $canManageRx = hasRole(['admin', 'optician']);
         <i class="bi bi-person-plus me-1"></i> New Customer
       </a>
       <?php if ($canManageRx): ?>
-        <a href="<?= BASE_URL; ?>modules/prescriptions/create.php" class="btn btn-primary btn-sm px-3">
+        <a href="<?= BASE_URL; ?>modules/prescriptions/create.php" class="btn btn-outline-info btn-sm px-3 text-white">
           <i class="bi bi-file-earmark-plus me-1"></i> New Rx
         </a>
       <?php endif; ?>
+      <a href="<?= BASE_URL; ?>modules/products/create.php" class="btn btn-primary btn-sm px-3">
+        <i class="bi bi-box-seam me-1"></i> Add Product
+      </a>
     </div>
   </div>
 </div>
@@ -128,16 +161,18 @@ $canManageRx = hasRole(['admin', 'optician']);
     </div>
   </div>
 
-  <!-- Active Customers -->
+  <!-- Total Catalog Products -->
   <div class="col-sm-6 col-xl-3">
     <div class="stat-card stat-success d-flex align-items-center justify-content-between">
       <div>
-        <div class="text-muted small fw-semibold text-uppercase">Active Customers</div>
-        <h3 class="fw-bold text-dark m-0 mt-1"><?= $activeCustomers; ?></h3>
-        <small class="text-muted" style="font-size: 0.75rem;">Dispensing ready</small>
+        <div class="text-muted small fw-semibold text-uppercase">Catalog Products</div>
+        <h3 class="fw-bold text-dark m-0 mt-1"><?= $totalProducts; ?></h3>
+        <small class="<?= ($outOfStockCount > 0 || $lowStockCount > 0) ? 'text-warning fw-bold' : 'text-success'; ?>" style="font-size: 0.75rem;">
+          <?= $lowStockCount; ?> low &bull; <?= $outOfStockCount; ?> out of stock
+        </small>
       </div>
       <div class="stat-icon icon-success">
-        <i class="bi bi-person-check-fill"></i>
+        <i class="bi bi-box-seam-fill"></i>
       </div>
     </div>
   </div>
@@ -276,36 +311,81 @@ $canManageRx = hasRole(['admin', 'optician']);
   </div>
 </div>
 
-<!-- Phase 4 Roadmap Summary -->
-<div class="card shadow-sm border-0 bg-light">
-  <div class="card-body p-4">
-    <div class="d-flex align-items-center gap-2 mb-2">
-      <i class="bi bi-compass text-primary fs-5"></i>
-      <h6 class="m-0 fw-bold text-dark">Optical Management System &mdash; Phase 3 Completed</h6>
+<!-- Product Catalog & Inventory Overview Widget -->
+<div class="card shadow-sm mb-4 border-0">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+    <h6 class="m-0 fw-semibold text-dark">
+      <i class="bi bi-box-seam-fill me-2 text-primary"></i> Optical Product Catalog &amp; Inventory
+    </h6>
+    <div class="d-flex gap-2">
+      <?php if (hasRole('admin')): ?>
+        <a href="<?= BASE_URL; ?>modules/products/categories.php" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-tags me-1"></i> Categories
+        </a>
+      <?php endif; ?>
+      <a href="<?= BASE_URL; ?>modules/products/index.php" class="btn btn-sm btn-outline-primary">
+        Manage Catalog
+      </a>
     </div>
-    <p class="text-muted small mb-3">
-      The Customer Management and Prescription Management modules are fully operational with complete OD/OS refraction history, multiple customer prescriptions, search, and role-based permissions.
-    </p>
-    <div class="row g-2">
-      <div class="col-md-6">
-        <div class="p-3 bg-white rounded border d-flex align-items-center gap-2">
-          <i class="bi bi-cart-check text-muted fs-5"></i>
-          <div>
-            <div class="fw-semibold small text-dark">Orders & Dispensing Module</div>
-            <small class="text-muted" style="font-size: 0.72rem;">Scheduled for Phase 4 (Frames, Lenses, Invoicing)</small>
-          </div>
-        </div>
+  </div>
+  <div class="table-responsive">
+    <?php if (empty($recentProducts)): ?>
+      <div class="p-4 text-center text-muted small">
+        No optical products added yet. <a href="<?= BASE_URL; ?>modules/products/create.php">Add first product</a>.
       </div>
-      <div class="col-md-6">
-        <div class="p-3 bg-white rounded border d-flex align-items-center gap-2">
-          <i class="bi bi-bar-chart-line text-muted fs-5"></i>
-          <div>
-            <div class="fw-semibold small text-dark">Reports & Analytics Module</div>
-            <small class="text-muted" style="font-size: 0.72rem;">Scheduled for Phase 5</small>
-          </div>
-        </div>
-      </div>
-    </div>
+    <?php else: ?>
+      <table class="table table-custom table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th class="ps-3">Code</th>
+            <th>Product Name</th>
+            <th>Type / Category</th>
+            <th class="text-end">Retail Price</th>
+            <th class="text-center">Stock Level</th>
+            <th class="text-center">Status</th>
+            <th class="text-end pe-3">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($recentProducts as $prod): ?>
+            <tr>
+              <td class="ps-3">
+                <a href="<?= BASE_URL; ?>modules/products/view.php?id=<?= $prod['id']; ?>" class="font-monospace fw-bold text-primary text-decoration-none">
+                  <?= e($prod['product_code']); ?>
+                </a>
+              </td>
+              <td>
+                <div class="fw-semibold text-dark"><?= e($prod['name']); ?></div>
+                <small class="text-muted"><?= !empty($prod['brand']) ? e($prod['brand']) : ''; ?></small>
+              </td>
+              <td>
+                <span class="badge <?= $prod['category_type'] === 'frame' ? 'bg-primary' : ($prod['category_type'] === 'lens' ? 'bg-info text-dark' : 'bg-dark'); ?> mb-1">
+                  <?= ucfirst(e($prod['category_type'])); ?>
+                </span>
+                <div class="small text-secondary"><?= e($prod['category_name']); ?></div>
+              </td>
+              <td class="text-end font-monospace fw-bold text-dark">
+                <?= formatMoney($prod['selling_price']); ?>
+              </td>
+              <td class="text-center">
+                <span class="font-monospace fw-bold me-1"><?= (int)$prod['stock_quantity']; ?></span>
+                <?= getStockBadge((int)$prod['stock_quantity'], (int)$prod['low_stock_threshold'], $prod['status']); ?>
+              </td>
+              <td class="text-center">
+                <span class="badge badge-status-<?= $prod['status'] === 'active' ? 'active' : 'inactive'; ?>">
+                  <?= ucfirst($prod['status']); ?>
+                </span>
+              </td>
+              <td class="text-end pe-3">
+                <a href="<?= BASE_URL; ?>modules/products/view.php?id=<?= $prod['id']; ?>" class="btn btn-sm btn-outline-secondary py-0 px-2" title="View Product">
+                  <i class="bi bi-eye"></i>
+                </a>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    <?php endif; ?>
   </div>
 </div>
 

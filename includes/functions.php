@@ -40,6 +40,15 @@ function csrfField(): string {
 }
 
 /**
+ * Alias for csrfField()
+ *
+ * @return string
+ */
+function getCsrfField(): string {
+    return csrfField();
+}
+
+/**
  * Verify submitted CSRF token
  *
  * @param string|null $token
@@ -277,4 +286,82 @@ function formatPd($pd): string {
         return '<span class="text-muted">&mdash;</span>';
     }
     return number_format((float) $pd, 1) . ' mm';
+}
+
+/**
+ * Generate a unique sequential product code based on product type
+ * Frame => FRM-00001, Lens => LNS-00001, Accessory => ACC-00001
+ *
+ * @param PDO $pdo
+ * @param string $type
+ * @return string
+ */
+function generateProductCode(PDO $pdo, string $type = 'frame'): string {
+    $prefixMap = [
+        'frame'     => 'FRM-',
+        'lens'      => 'LNS-',
+        'accessory' => 'ACC-'
+    ];
+
+    $prefix = $prefixMap[$type] ?? 'FRM-';
+
+    // Find highest numerical suffix with this prefix
+    $stmt = $pdo->prepare("
+        SELECT MAX(CAST(SUBSTRING(product_code, 5) AS UNSIGNED)) AS max_code
+        FROM products
+        WHERE product_code LIKE :prefix_pattern
+    ");
+    $stmt->execute(['prefix_pattern' => $prefix . '%']);
+    $maxNum = (int) $stmt->fetchColumn();
+    $nextNum = max($maxNum + 1, 1);
+
+    // Collision-safe loop
+    $checkStmt = $pdo->prepare("SELECT id FROM products WHERE product_code = :code LIMIT 1");
+    do {
+        $candidateCode = sprintf($prefix . '%05d', $nextNum);
+        $checkStmt->execute(['code' => $candidateCode]);
+        $exists = $checkStmt->fetchColumn();
+        if (!$exists) {
+            return $candidateCode;
+        }
+        $nextNum++;
+    } while (true);
+}
+
+/**
+ * Format monetary amount with currency symbol
+ *
+ * @param float|int|string|null $amount
+ * @param string $currency
+ * @return string
+ */
+function formatMoney($amount, string $currency = '$'): string {
+    if ($amount === null || $amount === '' || !is_numeric($amount)) {
+        return '<span class="text-muted">&mdash;</span>';
+    }
+    return $currency . number_format((float) $amount, 2);
+}
+
+/**
+ * Render stock health badge (In Stock, Low Stock, Out of Stock)
+ *
+ * @param int $stock
+ * @param int $threshold
+ * @param string $status
+ * @return string HTML Badge
+ */
+function getStockBadge(int $stock, int $threshold = 5, string $status = 'active'): string {
+    if ($status === 'inactive') {
+        return '<span class="badge badge-status-inactive">Inactive</span>';
+    }
+
+    if ($stock <= 0) {
+        return '<span class="badge badge-status-inactive" style="font-weight: 600;"><i class="bi bi-x-circle me-1"></i>Out of Stock (0)</span>';
+    }
+
+    if ($stock <= $threshold) {
+        return '<span class="badge bg-warning text-dark border" style="font-weight: 600;"><i class="bi bi-exclamation-triangle me-1"></i>Low Stock (' . $stock . ')</span>';
+    }
+
+    return '<span class="badge badge-status-active" style="font-weight: 600;"><i class="bi bi-check-circle me-1"></i>In Stock (' . $stock . ')</span>';
 }

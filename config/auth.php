@@ -85,6 +85,15 @@ function requireLogin(): void {
 }
 
 /**
+ * Alias for requireLogin()
+ *
+ * @return void
+ */
+function requireAuth(): void {
+    requireLogin();
+}
+
+/**
  * Require specific role(s) to access a page.
  *
  * @param array|string $roles

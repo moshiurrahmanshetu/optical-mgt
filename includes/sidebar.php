@@ -8,7 +8,8 @@ $currentScript = basename($_SERVER['SCRIPT_NAME'] ?? '');
 $currentDir = basename(dirname($_SERVER['SCRIPT_NAME'] ?? ''));
 
 // Determine active items
-$isDashboard = ($currentScript === 'index.php' && $currentDir !== 'auth');
+$isDashboard = ($currentScript === 'index.php' && $currentDir !== 'auth' && $currentDir !== 'customers');
+$isCustomers = (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/customers/') !== false);
 $isProfile   = ($currentScript === 'profile.php' || $currentScript === 'update-profile.php');
 $isPassword  = ($currentScript === 'change-password.php');
 ?>
@@ -39,14 +40,13 @@ $isPassword  = ($currentScript === 'change-password.php');
       </li>
     </ul>
 
-    <!-- Modules Group (Phase 2 Modules) -->
+    <!-- Modules Group -->
     <div class="sidebar-heading mt-2">Optical Operations</div>
     <ul class="sidebar-nav">
       <li class="nav-item">
-        <a href="javascript:void(0);" class="nav-link disabled-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Customers (Phase 2)">
+        <a href="<?= BASE_URL; ?>modules/customers/index.php" class="nav-link <?= $isCustomers ? 'active' : ''; ?>" data-bs-toggle="tooltip" data-bs-placement="right" title="Customers">
           <i class="bi bi-people"></i>
           <span class="nav-link-text">Customers</span>
-          <span class="badge-soon">Soon</span>
         </a>
       </li>
       <li class="nav-item">

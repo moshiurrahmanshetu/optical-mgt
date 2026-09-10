@@ -10,6 +10,11 @@ require_once __DIR__ . '/includes/header.php';
 // Fetch live database statistics
 $pdo = getDbConnection();
 
+// Customer Statistics
+$totalCustomers = (int) $pdo->query("SELECT COUNT(*) FROM customers")->fetchColumn();
+$newCustomersThisMonth = (int) $pdo->query("SELECT COUNT(*) FROM customers WHERE created_at >= DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')")->fetchColumn();
+$activeCustomers = (int) $pdo->query("SELECT COUNT(*) FROM customers WHERE status = 'active'")->fetchColumn();
+
 // Total Users Count
 $totalUsers = (int) $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
 
@@ -35,6 +40,15 @@ $salesCount = (int) $pdo->query("
     WHERE r.name = 'sales_staff'
 ")->fetchColumn();
 
+// Fetch Recent Customers
+$recentCustStmt = $pdo->query("
+    SELECT id, customer_code, full_name, phone, email, status, created_at 
+    FROM customers 
+    ORDER BY id DESC 
+    LIMIT 5
+");
+$recentCustomers = $recentCustStmt->fetchAll();
+
 // Fetch System Users List
 $usersStmt = $pdo->query("
     SELECT u.id, u.name, u.username, u.email, u.phone, u.avatar, u.status, u.last_login_at, u.created_at,
@@ -57,30 +71,32 @@ $user = currentUser();
       </div>
       <h4 class="fw-bold m-0 text-white">Welcome, <?= e($user['name'] ?? 'User'); ?></h4>
       <p class="text-secondary small m-0 mt-1">
-        <?= APP_NAME; ?> &bull; Phase 1 Foundation Active &bull;
+        <?= APP_NAME; ?> &bull; Phase 2 Customer Module Active &bull;
         Last Session: <?= !empty($user['last_login_at']) ? date('M d, Y h:i A', strtotime($user['last_login_at'])) : 'Active Now'; ?>
       </p>
     </div>
     <div class="d-flex gap-2">
-      <a href="<?= BASE_URL; ?>auth/profile.php" class="btn btn-outline-light btn-sm px-3">
-        <i class="bi bi-person me-1"></i> Edit Profile
+      <a href="<?= BASE_URL; ?>modules/customers/create.php" class="btn btn-primary btn-sm px-3">
+        <i class="bi bi-person-plus-fill me-1"></i> New Customer
       </a>
-      <a href="<?= BASE_URL; ?>auth/change-password.php" class="btn btn-primary btn-sm px-3">
-        <i class="bi bi-key me-1"></i> Security
+      <a href="<?= BASE_URL; ?>auth/profile.php" class="btn btn-outline-light btn-sm px-3">
+        <i class="bi bi-person me-1"></i> My Profile
       </a>
     </div>
   </div>
 </div>
 
-<!-- Real DB KPI Metrics Cards -->
+<!-- Real Database KPI Metrics Cards -->
 <div class="row g-3 mb-4">
-  <!-- Total Users -->
+  <!-- Total Customers -->
   <div class="col-sm-6 col-xl-3">
     <div class="stat-card stat-primary d-flex align-items-center justify-content-between">
       <div>
-        <div class="text-muted small fw-semibold text-uppercase">Total Users</div>
-        <h3 class="fw-bold text-dark m-0 mt-1"><?= $totalUsers; ?></h3>
-        <small class="text-muted" style="font-size: 0.75rem;">Registered accounts</small>
+        <div class="text-muted small fw-semibold text-uppercase">Total Customers</div>
+        <h3 class="fw-bold text-dark m-0 mt-1"><?= $totalCustomers; ?></h3>
+        <small class="text-success fw-semibold" style="font-size: 0.75rem;">
+          <i class="bi bi-arrow-up-short"></i> <?= $newCustomersThisMonth; ?> this month
+        </small>
       </div>
       <div class="stat-icon icon-primary">
         <i class="bi bi-people-fill"></i>
@@ -88,21 +104,21 @@ $user = currentUser();
     </div>
   </div>
 
-  <!-- Administrators -->
+  <!-- Active Customers -->
   <div class="col-sm-6 col-xl-3">
     <div class="stat-card stat-success d-flex align-items-center justify-content-between">
       <div>
-        <div class="text-muted small fw-semibold text-uppercase">Administrators</div>
-        <h3 class="fw-bold text-dark m-0 mt-1"><?= $adminCount; ?></h3>
-        <small class="text-muted" style="font-size: 0.75rem;">System managers</small>
+        <div class="text-muted small fw-semibold text-uppercase">Active Customers</div>
+        <h3 class="fw-bold text-dark m-0 mt-1"><?= $activeCustomers; ?></h3>
+        <small class="text-muted" style="font-size: 0.75rem;">Ready for dispensing</small>
       </div>
       <div class="stat-icon icon-success">
-        <i class="bi bi-shield-lock-fill"></i>
+        <i class="bi bi-person-check-fill"></i>
       </div>
     </div>
   </div>
 
-  <!-- Opticians -->
+  <!-- Opticians / Clinical Staff -->
   <div class="col-sm-6 col-xl-3">
     <div class="stat-card stat-info d-flex align-items-center justify-content-between">
       <div>
@@ -116,119 +132,143 @@ $user = currentUser();
     </div>
   </div>
 
-  <!-- Sales Staff -->
+  <!-- System Staff Accounts -->
   <div class="col-sm-6 col-xl-3">
     <div class="stat-card stat-warning d-flex align-items-center justify-content-between">
       <div>
-        <div class="text-muted small fw-semibold text-uppercase">Sales Staff</div>
-        <h3 class="fw-bold text-dark m-0 mt-1"><?= $salesCount; ?></h3>
-        <small class="text-muted" style="font-size: 0.75rem;">Front desk & billing</small>
+        <div class="text-muted small fw-semibold text-uppercase">System Users</div>
+        <h3 class="fw-bold text-dark m-0 mt-1"><?= $totalUsers; ?></h3>
+        <small class="text-muted" style="font-size: 0.75rem;"><?= $adminCount; ?> Admin &bull; <?= $salesCount; ?> Sales</small>
       </div>
       <div class="stat-icon icon-warning">
-        <i class="bi bi-cart-check-fill"></i>
+        <i class="bi bi-shield-person"></i>
       </div>
     </div>
   </div>
 </div>
 
-<!-- System User Accounts Table -->
+<!-- Main Row: Recent Customers + System Staff -->
 <div class="row g-4 mb-4">
-  <div class="col-12">
-    <div class="card shadow-sm">
+  <!-- Recent Customers Widget -->
+  <div class="col-lg-7">
+    <div class="card shadow-sm h-100">
       <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
         <h6 class="m-0 fw-semibold text-dark">
-          <i class="bi bi-person-lines-fill me-2 text-primary"></i> System Users & Roles
+          <i class="bi bi-people-fill me-2 text-primary"></i> Recent Optical Customers
         </h6>
-        <span class="badge bg-light text-dark border"><?= count($allUsers); ?> Records</span>
+        <a href="<?= BASE_URL; ?>modules/customers/index.php" class="btn btn-sm btn-outline-primary">
+          View All Customers
+        </a>
       </div>
       <div class="table-responsive">
-        <table class="table table-custom table-hover align-middle mb-0">
-          <thead>
-            <tr>
-              <th style="width: 60px;">#</th>
-              <th>User</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Last Login</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($allUsers as $u): ?>
-              <?php $uAvatar = getAvatarUrl($u['avatar'], $u['name']); ?>
+        <?php if (empty($recentCustomers)): ?>
+          <div class="p-4 text-center text-muted small">
+            No customers registered yet. <a href="<?= BASE_URL; ?>modules/customers/create.php">Add a customer</a>.
+          </div>
+        <?php else: ?>
+          <table class="table table-custom table-hover align-middle mb-0">
+            <thead>
               <tr>
-                <td class="text-muted fw-medium"><?= e($u['id']); ?></td>
-                <td>
-                  <div class="d-flex align-items-center gap-2">
-                    <img src="<?= e($uAvatar); ?>" alt="<?= e($u['name']); ?>" class="user-avatar-img">
-                    <div>
-                      <div class="fw-semibold text-dark"><?= e($u['name']); ?></div>
-                      <small class="text-muted">@<?= e($u['username']); ?></small>
-                    </div>
-                  </div>
-                </td>
-                <td><?= e($u['email']); ?></td>
-                <td>
-                  <span class="badge badge-role <?= $u['role_name'] === 'admin' ? 'badge-role-admin' : ($u['role_name'] === 'optician' ? 'badge-role-optician' : 'badge-role-sales'); ?>">
-                    <?= e($u['role_display_name']); ?>
-                  </span>
-                </td>
-                <td>
-                  <span class="badge <?= $u['status'] === 'active' ? 'badge-status-active' : 'badge-status-inactive'; ?>">
-                    <?= ucfirst(e($u['status'])); ?>
-                  </span>
-                </td>
-                <td class="text-muted small">
-                  <?= !empty($u['last_login_at']) ? date('M d, Y h:i A', strtotime($u['last_login_at'])) : '<span class="text-secondary">&mdash;</span>'; ?>
-                </td>
-                <td class="text-muted small">
-                  <?= date('M d, Y', strtotime($u['created_at'])); ?>
-                </td>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Status</th>
+                <th class="text-end">Action</th>
               </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              <?php foreach ($recentCustomers as $rc): ?>
+                <tr>
+                  <td>
+                    <span class="badge bg-light text-dark border font-monospace">
+                      <?= e($rc['customer_code']); ?>
+                    </span>
+                  </td>
+                  <td>
+                    <a href="<?= BASE_URL; ?>modules/customers/view.php?id=<?= $rc['id']; ?>" class="fw-semibold text-dark text-decoration-none">
+                      <?= e($rc['full_name']); ?>
+                    </a>
+                  </td>
+                  <td class="text-dark small"><?= e($rc['phone']); ?></td>
+                  <td>
+                    <span class="badge <?= $rc['status'] === 'active' ? 'badge-status-active' : 'badge-status-inactive'; ?>">
+                      <?= ucfirst(e($rc['status'])); ?>
+                    </span>
+                  </td>
+                  <td class="text-end">
+                    <a href="<?= BASE_URL; ?>modules/customers/view.php?id=<?= $rc['id']; ?>" class="btn btn-sm btn-outline-secondary py-0 px-2" title="View Customer">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        <?php endif; ?>
+      </div>
+    </div>
+  </div>
+
+  <!-- System User Accounts Summary -->
+  <div class="col-lg-5">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+        <h6 class="m-0 fw-semibold text-dark">
+          <i class="bi bi-shield-lock-fill me-2 text-primary"></i> Authorized Staff
+        </h6>
+        <span class="badge bg-light text-dark border"><?= count($allUsers); ?> Users</span>
+      </div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+          <?php foreach ($allUsers as $u): ?>
+            <?php $uAvatar = getAvatarUrl($u['avatar'], $u['name']); ?>
+            <li class="list-group-item d-flex align-items-center justify-content-between py-3 px-4">
+              <div class="d-flex align-items-center gap-3">
+                <img src="<?= e($uAvatar); ?>" alt="<?= e($u['name']); ?>" class="user-avatar-img">
+                <div>
+                  <div class="fw-semibold text-dark small"><?= e($u['name']); ?></div>
+                  <small class="text-muted">@<?= e($u['username']); ?></small>
+                </div>
+              </div>
+              <div>
+                <span class="badge badge-role <?= $u['role_name'] === 'admin' ? 'badge-role-admin' : ($u['role_name'] === 'optician' ? 'badge-role-optician' : 'badge-role-sales'); ?>">
+                  <?= e($u['role_display_name']); ?>
+                </span>
+              </div>
+            </li>
+          <?php endforeach; ?>
+        </ul>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Phase 2 Module Roadmap Container -->
+<!-- Phase 3 & 4 Roadmap Summary -->
 <div class="card shadow-sm border-0 bg-light">
   <div class="card-body p-4">
     <div class="d-flex align-items-center gap-2 mb-2">
       <i class="bi bi-compass text-primary fs-5"></i>
-      <h6 class="m-0 fw-bold text-dark">Optical Management Architecture &mdash; Phase 1 Active</h6>
+      <h6 class="m-0 fw-bold text-dark">Optical Management System &mdash; Phase 2 Completed</h6>
     </div>
     <p class="text-muted small mb-3">
-      The core project foundation, secure PDO authentication, RBAC authorization, responsive collapsible layout, profile management, and avatar processing are ready. Business modules will integrate seamlessly into <code>modules/</code> in subsequent phases.
+      The Customer Management module is fully operational with unique customer codes, server-side validation, search, pagination, and RBAC controls. Upcoming modules will link directly to registered customers.
     </p>
     <div class="row g-2">
-      <div class="col-md-4 col-sm-6">
-        <div class="p-3 bg-white rounded border d-flex align-items-center gap-2">
-          <i class="bi bi-people text-muted fs-5"></i>
-          <div>
-            <div class="fw-semibold small text-dark">Customers Module</div>
-            <small class="text-muted" style="font-size: 0.72rem;">Scheduled for Phase 2</small>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 col-sm-6">
+      <div class="col-md-6">
         <div class="p-3 bg-white rounded border d-flex align-items-center gap-2">
           <i class="bi bi-file-earmark-medical text-muted fs-5"></i>
           <div>
-            <div class="fw-semibold small text-dark">Prescriptions (Rx)</div>
-            <small class="text-muted" style="font-size: 0.72rem;">Scheduled for Phase 2</small>
+            <div class="fw-semibold small text-dark">Prescription Module (Rx)</div>
+            <small class="text-muted" style="font-size: 0.72rem;">Scheduled for Phase 3 (SPH, CYL, Axis, PD)</small>
           </div>
         </div>
       </div>
-      <div class="col-md-4 col-sm-6">
+      <div class="col-md-6">
         <div class="p-3 bg-white rounded border d-flex align-items-center gap-2">
-          <i class="bi bi-box-seam text-muted fs-5"></i>
+          <i class="bi bi-cart-check text-muted fs-5"></i>
           <div>
-            <div class="fw-semibold small text-dark">Frames & Lens Inventory</div>
-            <small class="text-muted" style="font-size: 0.72rem;">Scheduled for Phase 2</small>
+            <div class="fw-semibold small text-dark">Orders & Billing Module</div>
+            <small class="text-muted" style="font-size: 0.72rem;">Scheduled for Phase 4 (Frames, Lenses, Invoices)</small>
           </div>
         </div>
       </div>

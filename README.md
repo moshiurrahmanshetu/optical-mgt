@@ -1,5 +1,5 @@
 # VisionCare Optical Shop Management CMS (`optical-mgt`)
-### Phase 1: Project Foundation + Authentication
+### Phase 1 + Phase 2: Project Foundation, Authentication & Customer Management
 
 A clean, robust, and lightweight Optical Shop Management CMS built in **Raw PHP 8+** and **MySQL** with a solid-color, non-gradient **Bootstrap 5** administration panel.
 
@@ -7,7 +7,7 @@ A clean, robust, and lightweight Optical Shop Management CMS built in **Raw PHP 
 
 ## 🚀 Technology Stack
 
-- **Backend**: Raw PHP 8+ (No heavy frameworks or Composer dependencies)
+- **Backend**: Raw PHP 8+ (No frameworks, no Composer dependencies, no Laravel architecture)
 - **Database**: MySQL 5.7+ / 8.0+ / MariaDB via **PDO** (Prepared Statements, UTF-8 `utf8mb4`)
 - **Frontend**: HTML5, CSS3 (Solid-color clinical styling, zero gradients), Vanilla JavaScript
 - **UI Framework**: Bootstrap 5.3.3 & Bootstrap Icons 1.11.3
@@ -40,19 +40,27 @@ optical-mgt/
 │   └── auth.php                # Authentication & RBAC helper functions
 │
 ├── database/
-│   ├── 01_auth_schema.sql      # Independent SQL schema (roles, users tables)
-│   └── 01_auth_seed.sql        # Seed data (roles + default bcrypt admin & staff)
+│   ├── 01_auth_schema.sql      # Authentication schema (roles, users)
+│   ├── 01_auth_seed.sql        # Authentication seed data (admin, optician, sales staff)
+│   ├── 02_customers_schema.sql # Customer Management schema (customers table)
+│   └── 02_customers_seed.sql   # Realistic sample customer records (CUS-00001 to CUS-00005)
 │
 ├── includes/
 │   ├── header.php              # Common HTML head, metadata, and CSS links
 │   ├── navbar.php              # Top navbar with user dropdown and sidebar toggle
-│   ├── sidebar.php             # Responsive collapsible sidebar navigation
+│   ├── sidebar.php             # Responsive collapsible sidebar navigation (Active routes)
 │   ├── footer.php              # Common footer, Bootstrap scripts, closing tags
-│   ├── functions.php           # Security helpers (CSRF, XSS escaping, redirects, avatar utils)
+│   ├── functions.php           # Security helpers (CSRF, XSS escaping, code generator, avatar utils)
 │   └── flash.php               # Session-based alert notifications
 │
 ├── modules/
-│   └── .gitkeep                # Future business modules (Phase 2)
+│   └── customers/              # Customer Management Module
+│       ├── index.php           # Customer list with search, status filters & pagination
+│       ├── create.php          # Add customer form with auto-code generation
+│       ├── edit.php            # Edit customer details & address/notes
+│       ├── view.php            # Customer profile view with future module tabs
+│       ├── toggle-status.php   # POST status toggle handler (Active/Inactive)
+│       └── delete.php          # POST delete customer handler (Administrator only)
 │
 ├── uploads/
 │   └── avatars/
@@ -60,25 +68,15 @@ optical-mgt/
 │       └── .gitkeep
 │
 ├── .htaccess                   # Root Apache security config
-├── index.php                   # Dashboard shell with real DB metrics
+├── index.php                   # Dashboard with live Customer & Staff metrics
 └── README.md                   # System documentation
 ```
 
 ---
 
-## 🛠️ XAMPP Installation & Setup Guide
+## 🛠️ Database Setup & Import Order
 
-### 1. Place Project in `htdocs`
-Ensure the project is located at:
-```text
-C:\xampp\htdocs\optical-mgt\
-```
-
-### 2. Start Apache and MySQL in XAMPP
-Open the **XAMPP Control Panel** and start both **Apache** and **MySQL** services.
-
-### 3. Database Setup & Import Order
-Open **phpMyAdmin** (`http://localhost/phpmyadmin/`) or use the MySQL command line:
+Open **phpMyAdmin** (`http://localhost/phpmyadmin/`) or MySQL CLI:
 
 1. Create the database:
    ```sql
@@ -87,23 +85,8 @@ Open **phpMyAdmin** (`http://localhost/phpmyadmin/`) or use the MySQL command li
 2. Import SQL files in this exact sequential order:
    - **Step 1**: `database/01_auth_schema.sql` (Creates `roles` and `users` tables)
    - **Step 2**: `database/01_auth_seed.sql` (Inserts system roles and seed user accounts)
-
-### 4. Database Configuration
-Edit [`config/database.php`](file:///c:/xampp/htdocs/optical-mgt/config/database.php) if your local MySQL settings differ from standard defaults:
-```php
-define('DB_HOST', 'localhost');
-define('DB_PORT', '3306');
-define('DB_NAME', 'optical_mgt');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-```
-
-### 5. Access the Application
-Open your browser and navigate to:
-```text
-http://localhost/optical-mgt/
-```
-Unauthenticated requests will automatically redirect to the login page (`auth/login.php`).
+   - **Step 3**: `database/02_customers_schema.sql` (Creates `customers` table)
+   - **Step 4**: `database/02_customers_seed.sql` (Inserts realistic sample customer records)
 
 ---
 
@@ -111,46 +94,28 @@ Unauthenticated requests will automatically redirect to the login page (`auth/lo
 
 All passwords are encrypted with PHP's `password_hash(..., PASSWORD_BCRYPT)`:
 
-| Role | Username | Email | Password |
-| :--- | :--- | :--- | :--- |
-| **Administrator** | `admin` | `admin@opticalmgt.com` | `Admin@123` |
-| **Optician** | `optician` | `optician@opticalmgt.com` | `Admin@123` |
-| **Sales Staff** | `sales` | `sales@opticalmgt.com` | `Admin@123` |
+| Role | Username | Email | Password | Permissions |
+| :--- | :--- | :--- | :--- | :--- |
+| **Administrator** | `admin` | `admin@opticalmgt.com` | `Admin@123` | Full CRUD, Status toggle, Delete customers |
+| **Optician** | `optician` | `optician@opticalmgt.com` | `Admin@123` | View, Create, Edit customers |
+| **Sales Staff** | `sales` | `sales@opticalmgt.com` | `Admin@123` | View, Create, Edit customers (No Delete) |
 
 ---
 
-## 🔐 Security Features Implemented
+## 👥 Customer Management Module Features
 
-1. **Prepared Statements**: All database operations use PDO prepared statements to eliminate SQL Injection risks.
-2. **Password Security**: Passwords are saved using modern `PASSWORD_BCRYPT` hashing; verification uses `password_verify()`.
-3. **Session Hardening**:
-   - `session.use_strict_mode = 1`
-   - `session.use_only_cookies = 1`
-   - Secure cookie attributes: `httponly = true`, `samesite = Lax`.
-   - `session_regenerate_id(true)` called upon successful authentication.
-4. **CSRF Protection**: Form submissions require a valid `csrf_token` checked using `hash_equals()`.
-5. **XSS Prevention**: Safe output escaping with `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')` via the `e()` helper function.
-6. **Avatar Upload Hardening**:
-   - Extension whitelist: `.jpg`, `.jpeg`, `.png`, `.webp`.
-   - MIME verification via PHP `finfo` (`image/jpeg`, `image/png`, `image/webp`).
-   - File size restricted to 2MB.
-   - Unique randomized filenames (`avatar_...`) to prevent directory traversal.
-   - Upload directory protected by `.htaccess` denying PHP and script execution.
-   - Fallback SVG avatar generated with user initials to prevent broken image icons.
-
----
-
-## 🖥️ UI & Sidebar Features
-
-- **Collapsible Sidebar**: Toggle between expanded (`260px`) and collapsed (`72px`) mode.
-- **State Persistence**: Collapsed/expanded state persists across page refreshes via `localStorage`.
-- **Tooltips**: Bootstrap 5 tooltips display menu names in collapsed sidebar mode.
-- **Responsive Offcanvas**: Seamless mobile navigation drawer with backdrop overlay.
-- **Solid Color Aesthetic**: Clinical, medical-grade solid palette (`#0f172a`, `#0284c7`, `#f8fafc`) without color gradients.
-
----
-
-## 📌 Development Notes for Subsequent Phases
-
-- Future business modules (Customers, Prescriptions, Frames/Lenses Products, Orders & Invoicing) will reside in the `modules/` directory without requiring modifications to the core authentication architecture.
-- Reusable authentication helpers (`isLoggedIn()`, `requireLogin()`, `currentUser()`, `requireRole()`) are globally accessible across all pages.
+1. **Auto-Generated Sequential Customer Code**:
+   - Format: `CUS-00001`, `CUS-00002`, `CUS-00003`...
+   - Calculated server-side by detecting the highest numeric suffix in the database and checking for collisions.
+2. **Search & Status Filtering**:
+   - Real-time search by customer code, full name, phone number, and email.
+   - Status filtering by `All`, `Active`, or `Inactive`.
+3. **Optimized Pagination**:
+   - Efficient pagination using `LIMIT` and `OFFSET` with a single `COUNT(*)` query.
+   - Preserves search and filter parameters across page links.
+4. **Role-Based Access Control**:
+   - All authenticated roles can view, register, and update customer profiles.
+   - Only the **Administrator** role can permanently delete customer records.
+5. **Customer Profile & Clinical Notes**:
+   - Full contact details, age calculation, address, and optical preferences/notes.
+   - Dedicated placeholder cards for upcoming **Prescription Management (Phase 3)** and **Orders & Billing (Phase 4)**.

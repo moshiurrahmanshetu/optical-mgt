@@ -191,3 +191,47 @@ function handleAvatarUpload(array $file, ?string $oldAvatar = null): array {
 
     return ['success' => true, 'filename' => $newFilename, 'error' => null];
 }
+
+/**
+ * Generate a unique sequential customer code (e.g. CUS-00001)
+ *
+ * @param PDO $pdo
+ * @return string
+ */
+function generateCustomerCode(PDO $pdo): string {
+    // Find highest numerical suffix from existing codes
+    $stmt = $pdo->query("
+        SELECT MAX(CAST(SUBSTRING(customer_code, 5) AS UNSIGNED)) AS max_code
+        FROM customers
+        WHERE customer_code REGEXP '^CUS-[0-9]+$'
+    ");
+    $maxNum = (int) $stmt->fetchColumn();
+    $nextNum = max($maxNum + 1, 1);
+
+    // Collision-safe verification
+    $checkStmt = $pdo->prepare("SELECT id FROM customers WHERE customer_code = :code LIMIT 1");
+    do {
+        $candidateCode = sprintf('CUS-%05d', $nextNum);
+        $checkStmt->execute(['code' => $candidateCode]);
+        $exists = $checkStmt->fetchColumn();
+        if (!$exists) {
+            return $candidateCode;
+        }
+        $nextNum++;
+    } while (true);
+}
+
+/**
+ * Format a nullable date string safely
+ *
+ * @param string|null $date
+ * @param string $format
+ * @return string
+ */
+function formatDate(?string $date, string $format = 'M d, Y'): string {
+    if (empty($date) || $date === '0000-00-00' || $date === '0000-00-00 00:00:00') {
+        return '<span class="text-muted">&mdash;</span>';
+    }
+    $ts = strtotime($date);
+    return $ts ? date($format, $ts) : '<span class="text-muted">&mdash;</span>';
+}

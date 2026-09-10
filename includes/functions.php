@@ -365,3 +365,83 @@ function getStockBadge(int $stock, int $threshold = 5, string $status = 'active'
 
     return '<span class="badge badge-status-active" style="font-weight: 600;"><i class="bi bi-check-circle me-1"></i>In Stock (' . $stock . ')</span>';
 }
+
+/**
+ * Generate a unique sequential order code (e.g. ORD-00001)
+ *
+ * @param PDO $pdo
+ * @return string
+ */
+function generateOrderCode(PDO $pdo): string {
+    $stmt = $pdo->query("
+        SELECT MAX(CAST(SUBSTRING(order_code, 5) AS UNSIGNED)) AS max_code
+        FROM orders
+        WHERE order_code REGEXP '^ORD-[0-9]+$'
+    ");
+    $maxNum = (int) $stmt->fetchColumn();
+    $nextNum = max($maxNum + 1, 1);
+
+    // Collision-safe verification
+    $checkStmt = $pdo->prepare("SELECT id FROM orders WHERE order_code = :code LIMIT 1");
+    do {
+        $candidateCode = sprintf('ORD-%05d', $nextNum);
+        $checkStmt->execute(['code' => $candidateCode]);
+        $exists = $checkStmt->fetchColumn();
+        if (!$exists) {
+            return $candidateCode;
+        }
+        $nextNum++;
+    } while (true);
+}
+
+/**
+ * Render order status badge using clean solid Bootstrap colors
+ *
+ * @param string $status
+ * @return string HTML Badge
+ */
+function getOrderStatusBadge(string $status): string {
+    $status = strtolower(trim($status));
+    $map = [
+        'pending'    => ['bg' => 'bg-secondary',          'text' => 'text-white', 'icon' => 'bi-clock-history',      'label' => 'Pending'],
+        'confirmed'  => ['bg' => 'bg-primary',            'text' => 'text-white', 'icon' => 'bi-check2-circle',      'label' => 'Confirmed'],
+        'processing' => ['bg' => 'bg-info text-dark',     'text' => '',           'icon' => 'bi-gear-wide-connected', 'label' => 'Processing'],
+        'ready'      => ['bg' => 'bg-warning text-dark',  'text' => '',           'icon' => 'bi-box-seam',            'label' => 'Ready'],
+        'delivered'  => ['bg' => 'bg-success',            'text' => 'text-white', 'icon' => 'bi-check-all',          'label' => 'Delivered'],
+        'cancelled'  => ['bg' => 'bg-danger',             'text' => 'text-white', 'icon' => 'bi-x-circle',           'label' => 'Cancelled'],
+    ];
+
+    $cfg = $map[$status] ?? ['bg' => 'bg-secondary', 'text' => 'text-white', 'icon' => 'bi-question-circle', 'label' => ucfirst($status)];
+    return '<span class="badge ' . $cfg['bg'] . ' ' . $cfg['text'] . ' d-inline-flex align-items-center gap-1 font-sans-serif" style="font-weight: 600;">'
+         . '<i class="bi ' . $cfg['icon'] . '"></i> ' . e($cfg['label'])
+         . '</span>';
+}
+
+/**
+ * Render payment settlement badge (Paid in Full, Partial Due, Unpaid/Due)
+ *
+ * @param float|int|string $grandTotal
+ * @param float|int|string $paidAmount
+ * @param float|int|string $dueAmount
+ * @return string HTML Badge
+ */
+function getPaymentStatusBadge($grandTotal, $paidAmount, $dueAmount): string {
+    $gt = (float) $grandTotal;
+    $paid = (float) $paidAmount;
+    $due = (float) $dueAmount;
+
+    if ($gt <= 0) {
+        return '<span class="badge bg-light text-secondary border">No Charge</span>';
+    }
+
+    if ($due <= 0.005) {
+        return '<span class="badge bg-success text-white d-inline-flex align-items-center gap-1"><i class="bi bi-check-circle-fill"></i> Fully Paid</span>';
+    }
+
+    if ($paid > 0.005) {
+        return '<span class="badge bg-warning text-dark border d-inline-flex align-items-center gap-1"><i class="bi bi-pie-chart-fill"></i> Partial Due</span>';
+    }
+
+    return '<span class="badge bg-danger text-white d-inline-flex align-items-center gap-1"><i class="bi bi-exclamation-circle-fill"></i> Unpaid</span>';
+}
+

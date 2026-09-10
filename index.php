@@ -1,7 +1,7 @@
 <?php
 /**
  * Optical Shop Management CMS (optical-mgt)
- * Admin Panel Shell & Dashboard
+ * Admin Panel Shell & Comprehensive Dashboard
  */
 
 $pageTitle = 'Dashboard Overview';
@@ -19,7 +19,7 @@ $activeCustomers = (int) $pdo->query("SELECT COUNT(*) FROM customers WHERE statu
 $totalPrescriptions = (int) $pdo->query("SELECT COUNT(*) FROM prescriptions")->fetchColumn();
 $newPrescriptionsThisMonth = (int) $pdo->query("SELECT COUNT(*) FROM prescriptions WHERE prescription_date >= DATE_FORMAT(NOW(), '%Y-%m-01')")->fetchColumn();
 
-// Product & Inventory Statistics (Phase 4)
+// Product & Inventory Statistics
 try {
     $prodStats = $pdo->query("
         SELECT 
@@ -38,30 +38,41 @@ try {
     $lowStockCount = 0;
 }
 
+// Order & Financial Statistics (Phase 5)
+try {
+    $orderStats = $pdo->query("
+        SELECT 
+            COUNT(*) AS total_orders,
+            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_orders,
+            SUM(CASE WHEN status IN ('confirmed', 'processing', 'ready') THEN 1 ELSE 0 END) AS active_orders,
+            SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) AS delivered_orders,
+            SUM(CASE WHEN status != 'cancelled' THEN grand_total ELSE 0 END) AS total_sales,
+            SUM(CASE WHEN status != 'cancelled' THEN due_amount ELSE 0 END) AS total_due
+        FROM orders
+    ")->fetch();
+    $totalOrders     = (int)($orderStats['total_orders'] ?? 0);
+    $pendingOrders   = (int)($orderStats['pending_orders'] ?? 0);
+    $activeOrders    = (int)($orderStats['active_orders'] ?? 0);
+    $deliveredOrders = (int)($orderStats['delivered_orders'] ?? 0);
+    $totalSales      = (float)($orderStats['total_sales'] ?? 0.0);
+    $totalDue        = (float)($orderStats['total_due'] ?? 0.0);
+} catch (Exception $e) {
+    $totalOrders = $pendingOrders = $activeOrders = $deliveredOrders = 0;
+    $totalSales = $totalDue = 0.0;
+}
+
 // Total Users Count
 $totalUsers = (int) $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
 
-// Role Counts
-$adminCount = (int) $pdo->query("
-    SELECT COUNT(*) 
-    FROM users u 
-    JOIN roles r ON u.role_id = r.id 
-    WHERE r.name = 'admin'
-")->fetchColumn();
-
-$opticianCount = (int) $pdo->query("
-    SELECT COUNT(*) 
-    FROM users u 
-    JOIN roles r ON u.role_id = r.id 
-    WHERE r.name = 'optician'
-")->fetchColumn();
-
-$salesCount = (int) $pdo->query("
-    SELECT COUNT(*) 
-    FROM users u 
-    JOIN roles r ON u.role_id = r.id 
-    WHERE r.name = 'sales_staff'
-")->fetchColumn();
+// Fetch Recent Orders (Phase 5)
+$recentOrdersStmt = $pdo->query("
+    SELECT o.*, c.full_name AS customer_name, c.customer_code, c.phone AS customer_phone
+    FROM orders o
+    JOIN customers c ON o.customer_id = c.id
+    ORDER BY o.id DESC
+    LIMIT 5
+");
+$recentOrders = $recentOrdersStmt->fetchAll();
 
 // Fetch Recent Customers
 $recentCustStmt = $pdo->query("
@@ -83,7 +94,7 @@ $recentRxStmt = $pdo->query("
 ");
 $recentPrescriptions = $recentRxStmt->fetchAll();
 
-// Fetch Recent or Low-Stock Products
+// Fetch Recent Products
 $recentProdStmt = $pdo->query("
     SELECT p.id, p.product_code, p.name, p.brand, p.selling_price, p.stock_quantity, p.low_stock_threshold, p.status,
            c.name AS category_name, c.type AS category_type
@@ -107,11 +118,14 @@ $canManageRx = hasRole(['admin', 'optician']);
       </div>
       <h4 class="fw-bold m-0 text-white">Welcome, <?= e($user['name'] ?? 'User'); ?></h4>
       <p class="text-secondary small m-0 mt-1">
-        <?= APP_NAME; ?> &bull; Phase 4 Product Catalog &amp; Inventory Active &bull;
+        <?= APP_NAME; ?> &bull; Order Management &amp; Due Tracking Active &bull;
         Last Session: <?= !empty($user['last_login_at']) ? date('M d, Y h:i A', strtotime($user['last_login_at'])) : 'Active Now'; ?>
       </p>
     </div>
     <div class="d-flex flex-wrap gap-2">
+      <a href="<?= BASE_URL; ?>modules/orders/create.php" class="btn btn-primary btn-sm px-3 shadow-sm">
+        <i class="bi bi-cart-plus me-1"></i> New Order
+      </a>
       <a href="<?= BASE_URL; ?>modules/customers/create.php" class="btn btn-outline-light btn-sm px-3">
         <i class="bi bi-person-plus me-1"></i> New Customer
       </a>
@@ -120,75 +134,218 @@ $canManageRx = hasRole(['admin', 'optician']);
           <i class="bi bi-file-earmark-plus me-1"></i> New Rx
         </a>
       <?php endif; ?>
-      <a href="<?= BASE_URL; ?>modules/products/create.php" class="btn btn-primary btn-sm px-3">
-        <i class="bi bi-box-seam me-1"></i> Add Product
-      </a>
     </div>
   </div>
 </div>
 
-<!-- Real Database KPI Metrics Cards -->
+<!-- Primary Financial & Order KPI Row -->
+<div class="row g-3 mb-4">
+  <!-- Total Net Sales -->
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card stat-primary d-flex align-items-center justify-content-between">
+      <div>
+        <div class="text-muted small fw-semibold text-uppercase">Total Sales</div>
+        <h3 class="fw-bold text-dark m-0 mt-1 font-monospace"><?= formatMoney($totalSales); ?></h3>
+        <small class="text-primary fw-semibold" style="font-size: 0.75rem;">
+          <i class="bi bi-graph-up-arrow"></i> Active non-cancelled
+        </small>
+      </div>
+      <div class="stat-icon icon-primary">
+        <i class="bi bi-currency-dollar"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Outstanding Due Amount -->
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card stat-warning d-flex align-items-center justify-content-between">
+      <div>
+        <div class="text-muted small fw-semibold text-uppercase">Outstanding Due</div>
+        <h3 class="fw-bold text-dark m-0 mt-1 font-monospace text-danger"><?= formatMoney($totalDue); ?></h3>
+        <small class="<?= $totalDue > 0 ? 'text-danger fw-bold' : 'text-success'; ?>" style="font-size: 0.75rem;">
+          <i class="bi bi-exclamation-circle"></i> <?= $totalDue > 0 ? 'Collectable balance' : 'All accounts settled'; ?>
+        </small>
+      </div>
+      <div class="stat-icon icon-warning">
+        <i class="bi bi-wallet2"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Total Orders -->
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card stat-info d-flex align-items-center justify-content-between">
+      <div>
+        <div class="text-muted small fw-semibold text-uppercase">Total Orders</div>
+        <h3 class="fw-bold text-dark m-0 mt-1"><?= $totalOrders; ?></h3>
+        <small class="text-info fw-semibold" style="font-size: 0.75rem;">
+          <?= $activeOrders; ?> active &bull; <?= $pendingOrders; ?> pending
+        </small>
+      </div>
+      <div class="stat-icon icon-info">
+        <i class="bi bi-receipt-cutoff"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delivered Orders -->
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card stat-success d-flex align-items-center justify-content-between">
+      <div>
+        <div class="text-muted small fw-semibold text-uppercase">Delivered Orders</div>
+        <h3 class="fw-bold text-dark m-0 mt-1"><?= $deliveredOrders; ?></h3>
+        <small class="text-success fw-semibold" style="font-size: 0.75rem;">
+          <i class="bi bi-check-circle-fill"></i> Completed fulfillment
+        </small>
+      </div>
+      <div class="stat-icon icon-success">
+        <i class="bi bi-check2-circle"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Secondary Operational Metrics Row -->
 <div class="row g-3 mb-4">
   <!-- Total Customers -->
   <div class="col-sm-6 col-xl-3">
     <div class="stat-card stat-primary d-flex align-items-center justify-content-between">
       <div>
         <div class="text-muted small fw-semibold text-uppercase">Total Customers</div>
-        <h3 class="fw-bold text-dark m-0 mt-1"><?= $totalCustomers; ?></h3>
+        <h4 class="fw-bold text-dark m-0 mt-1"><?= $totalCustomers; ?></h4>
         <small class="text-success fw-semibold" style="font-size: 0.75rem;">
           <i class="bi bi-arrow-up-short"></i> <?= $newCustomersThisMonth; ?> this month
         </small>
       </div>
-      <div class="stat-icon icon-primary">
+      <div class="stat-icon icon-primary" style="width: 40px; height: 40px; font-size: 1.25rem;">
         <i class="bi bi-people-fill"></i>
       </div>
     </div>
   </div>
 
-  <!-- Total Prescriptions -->
+  <!-- Prescriptions (Rx) -->
   <div class="col-sm-6 col-xl-3">
     <div class="stat-card stat-info d-flex align-items-center justify-content-between">
       <div>
         <div class="text-muted small fw-semibold text-uppercase">Prescriptions (Rx)</div>
-        <h3 class="fw-bold text-dark m-0 mt-1"><?= $totalPrescriptions; ?></h3>
+        <h4 class="fw-bold text-dark m-0 mt-1"><?= $totalPrescriptions; ?></h4>
         <small class="text-info fw-semibold" style="font-size: 0.75rem;">
           <i class="bi bi-check2"></i> <?= $newPrescriptionsThisMonth; ?> this month
         </small>
       </div>
-      <div class="stat-icon icon-info">
+      <div class="stat-icon icon-info" style="width: 40px; height: 40px; font-size: 1.25rem;">
         <i class="bi bi-file-earmark-medical-fill"></i>
       </div>
     </div>
   </div>
 
-  <!-- Total Catalog Products -->
+  <!-- Catalog Products -->
   <div class="col-sm-6 col-xl-3">
     <div class="stat-card stat-success d-flex align-items-center justify-content-between">
       <div>
         <div class="text-muted small fw-semibold text-uppercase">Catalog Products</div>
-        <h3 class="fw-bold text-dark m-0 mt-1"><?= $totalProducts; ?></h3>
+        <h4 class="fw-bold text-dark m-0 mt-1"><?= $totalProducts; ?></h4>
         <small class="<?= ($outOfStockCount > 0 || $lowStockCount > 0) ? 'text-warning fw-bold' : 'text-success'; ?>" style="font-size: 0.75rem;">
           <?= $lowStockCount; ?> low &bull; <?= $outOfStockCount; ?> out of stock
         </small>
       </div>
-      <div class="stat-icon icon-success">
+      <div class="stat-icon icon-success" style="width: 40px; height: 40px; font-size: 1.25rem;">
         <i class="bi bi-box-seam-fill"></i>
       </div>
     </div>
   </div>
 
-  <!-- System Staff Accounts -->
+  <!-- System Staff -->
   <div class="col-sm-6 col-xl-3">
     <div class="stat-card stat-warning d-flex align-items-center justify-content-between">
       <div>
         <div class="text-muted small fw-semibold text-uppercase">System Staff</div>
-        <h3 class="fw-bold text-dark m-0 mt-1"><?= $totalUsers; ?></h3>
-        <small class="text-muted" style="font-size: 0.75rem;"><?= $opticianCount; ?> Optician &bull; <?= $adminCount; ?> Admin</small>
+        <h4 class="fw-bold text-dark m-0 mt-1"><?= $totalUsers; ?></h4>
+        <small class="text-muted" style="font-size: 0.75rem;">Active accounts</small>
       </div>
-      <div class="stat-icon icon-warning">
+      <div class="stat-icon icon-warning" style="width: 40px; height: 40px; font-size: 1.25rem;">
         <i class="bi bi-shield-person"></i>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Recent Orders & Billing Section (Phase 5 Highlight) -->
+<div class="card shadow-sm mb-4 border-0">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+    <h6 class="m-0 fw-semibold text-dark">
+      <i class="bi bi-cart-check-fill me-2 text-primary"></i> Recent Optical Orders &amp; Billing
+    </h6>
+    <div class="d-flex gap-2">
+      <a href="<?= BASE_URL; ?>modules/orders/create.php" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-plus-circle me-1"></i> New Order
+      </a>
+      <a href="<?= BASE_URL; ?>modules/orders/index.php" class="btn btn-sm btn-primary">
+        View All Orders
+      </a>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <?php if (empty($recentOrders)): ?>
+      <div class="p-4 text-center text-muted small">
+        No orders created yet. <a href="<?= BASE_URL; ?>modules/orders/create.php">Create first optical order</a>.
+      </div>
+    <?php else: ?>
+      <table class="table table-custom table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th class="ps-3">Order Code</th>
+            <th>Customer</th>
+            <th>Date</th>
+            <th class="text-end">Grand Total</th>
+            <th class="text-end">Paid</th>
+            <th class="text-end">Due</th>
+            <th class="text-center">Status</th>
+            <th class="text-end pe-3">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($recentOrders as $ro): ?>
+            <tr>
+              <td class="ps-3">
+                <a href="<?= BASE_URL; ?>modules/orders/view.php?id=<?= $ro['id']; ?>" class="font-monospace fw-bold text-primary text-decoration-none">
+                  <?= e($ro['order_code']); ?>
+                </a>
+              </td>
+              <td>
+                <a href="<?= BASE_URL; ?>modules/customers/view.php?id=<?= $ro['customer_id']; ?>" class="fw-semibold text-dark text-decoration-none hover-primary">
+                  <?= e($ro['customer_name']); ?>
+                </a>
+                <div class="small text-muted font-monospace"><?= e($ro['customer_phone']); ?></div>
+              </td>
+              <td class="small text-dark"><?= date('M d, Y', strtotime($ro['order_date'])); ?></td>
+              <td class="text-end font-monospace fw-bold text-dark">
+                <?= formatMoney($ro['grand_total']); ?>
+              </td>
+              <td class="text-end font-monospace text-success">
+                <?= formatMoney($ro['paid_amount']); ?>
+              </td>
+              <td class="text-end font-monospace <?= (float)$ro['due_amount'] > 0 ? 'text-danger fw-bold' : 'text-muted'; ?>">
+                <?= formatMoney($ro['due_amount']); ?>
+              </td>
+              <td class="text-center">
+                <?= getOrderStatusBadge($ro['status']); ?>
+              </td>
+              <td class="text-end pe-3">
+                <div class="btn-group btn-group-sm">
+                  <a href="<?= BASE_URL; ?>modules/orders/view.php?id=<?= $ro['id']; ?>" class="btn btn-outline-secondary py-0 px-2" title="View Order">
+                    <i class="bi bi-eye"></i>
+                  </a>
+                  <a href="<?= BASE_URL; ?>modules/orders/print.php?id=<?= $ro['id']; ?>" target="_blank" class="btn btn-outline-secondary py-0 px-2" title="Print Invoice">
+                    <i class="bi bi-printer"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    <?php endif; ?>
   </div>
 </div>
 

@@ -8,10 +8,11 @@ $currentScript = basename($_SERVER['SCRIPT_NAME'] ?? '');
 $currentDir = basename(dirname($_SERVER['SCRIPT_NAME'] ?? ''));
 
 // Determine active items
-$isDashboard     = ($currentScript === 'index.php' && $currentDir !== 'auth' && $currentDir !== 'customers' && $currentDir !== 'prescriptions' && $currentDir !== 'products');
+$isDashboard     = ($currentScript === 'index.php' && $currentDir !== 'auth' && $currentDir !== 'customers' && $currentDir !== 'prescriptions' && $currentDir !== 'products' && $currentDir !== 'orders');
 $isCustomers     = (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/customers/') !== false);
 $isPrescriptions = (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/prescriptions/') !== false);
 $isProducts      = (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/products/') !== false);
+$isOrders        = (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/orders/') !== false);
 $isProfile       = ($currentScript === 'profile.php' || $currentScript === 'update-profile.php');
 $isPassword      = ($currentScript === 'change-password.php');
 ?>
@@ -64,10 +65,9 @@ $isPassword      = ($currentScript === 'change-password.php');
         </a>
       </li>
       <li class="nav-item">
-        <a href="javascript:void(0);" class="nav-link disabled-link" data-bs-toggle="tooltip" data-bs-placement="right" title="Orders & Billing (Phase 2)">
+        <a href="<?= BASE_URL; ?>modules/orders/index.php" class="nav-link <?= $isOrders ? 'active' : ''; ?>" data-bs-toggle="tooltip" data-bs-placement="right" title="Orders & Billing">
           <i class="bi bi-cart-check"></i>
           <span class="nav-link-text">Orders</span>
-          <span class="badge-soon">Soon</span>
         </a>
       </li>
       <li class="nav-item">

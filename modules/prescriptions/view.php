@@ -33,6 +33,16 @@ if (!$prescription) {
     setFlash('error', 'Prescription record not found.');
     redirect('modules/prescriptions/index.php');
 }
+
+// Fetch Orders Linked to this Prescription (single efficient query)
+$orderStmt = $pdo->prepare("
+    SELECT *
+    FROM orders
+    WHERE prescription_id = :rx_id
+    ORDER BY order_date DESC, id DESC
+");
+$orderStmt->execute(['rx_id' => $id]);
+$relatedOrders = $orderStmt->fetchAll();
 ?>
 
 <!-- Header Actions & Breadcrumbs -->
@@ -52,6 +62,11 @@ if (!$prescription) {
   </div>
 
   <div class="d-flex flex-wrap gap-2">
+    <!-- Create Order with this Rx -->
+    <a href="<?= BASE_URL; ?>modules/orders/create.php?customer_id=<?= $prescription['customer_id']; ?>&prescription_id=<?= $prescription['id']; ?>" class="btn btn-primary d-inline-flex align-items-center gap-1 shadow-sm">
+      <i class="bi bi-cart-plus-fill"></i> Create Order
+    </a>
+
     <!-- Print Rx Button -->
     <button type="button" onclick="window.print();" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1">
       <i class="bi bi-printer"></i> Print Rx
@@ -59,7 +74,7 @@ if (!$prescription) {
 
     <!-- Edit Rx Button -->
     <?php if ($canManage): ?>
-      <a href="<?= BASE_URL; ?>modules/prescriptions/edit.php?id=<?= $prescription['id']; ?>" class="btn btn-primary d-inline-flex align-items-center gap-1">
+      <a href="<?= BASE_URL; ?>modules/prescriptions/edit.php?id=<?= $prescription['id']; ?>" class="btn btn-outline-primary d-inline-flex align-items-center gap-1">
         <i class="bi bi-pencil-square"></i> Edit Rx
       </a>
 
@@ -194,10 +209,10 @@ if (!$prescription) {
     </div>
 
     <!-- Clinical Notes & Lens Recommendations -->
-    <div class="card shadow-sm">
+    <div class="card shadow-sm mb-4">
       <div class="card-header bg-white py-3">
         <h6 class="m-0 fw-semibold text-dark">
-          <i class="bi bi-file-text-fill me-2 text-primary"></i> Clinical Notes & Lens Recommendations
+          <i class="bi bi-file-text-fill me-2 text-primary"></i> Clinical Notes &amp; Lens Recommendations
         </h6>
       </div>
       <div class="card-body p-4">
@@ -209,6 +224,78 @@ if (!$prescription) {
           <p class="text-muted small m-0">No special clinical notes or lens dispensing remarks recorded for this prescription.</p>
         <?php endif; ?>
       </div>
+    </div>
+
+    <!-- Related Optical Orders Section -->
+    <div class="card shadow-sm">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+          <h6 class="m-0 fw-semibold text-dark">
+            <i class="bi bi-cart-check-fill me-2 text-primary"></i> Orders Using this Prescription (Rx #<?= $prescription['id']; ?>)
+          </h6>
+          <span class="badge bg-light text-dark border"><?= count($relatedOrders); ?> <?= count($relatedOrders) === 1 ? 'Order' : 'Orders'; ?></span>
+        </div>
+        <a href="<?= BASE_URL; ?>modules/orders/create.php?customer_id=<?= $prescription['customer_id']; ?>&prescription_id=<?= $prescription['id']; ?>" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+          <i class="bi bi-plus-circle"></i> Create Order
+        </a>
+      </div>
+      <?php if (empty($relatedOrders)): ?>
+        <div class="card-body text-center py-4">
+          <div class="text-muted mb-2"><i class="bi bi-cart-x fs-2 text-secondary"></i></div>
+          <h6 class="fw-semibold text-dark mb-1">No orders created for this prescription yet</h6>
+          <p class="text-muted small mb-3">You can dispense prescription lenses and frames directly with this examination.</p>
+          <a href="<?= BASE_URL; ?>modules/orders/create.php?customer_id=<?= $prescription['customer_id']; ?>&prescription_id=<?= $prescription['id']; ?>" class="btn btn-sm btn-primary">
+            <i class="bi bi-cart-plus me-1"></i> Place Order with this Rx
+          </a>
+        </div>
+      <?php else: ?>
+        <div class="table-responsive">
+          <table class="table table-custom table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th class="ps-3">Order Code</th>
+                <th>Date</th>
+                <th class="text-end">Total</th>
+                <th class="text-end">Paid</th>
+                <th class="text-end">Due</th>
+                <th class="text-center">Status</th>
+                <th class="text-end pe-3">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($relatedOrders as $ord): ?>
+                <tr>
+                  <td class="ps-3">
+                    <a href="<?= BASE_URL; ?>modules/orders/view.php?id=<?= $ord['id']; ?>" class="font-monospace fw-bold text-primary text-decoration-none">
+                      <?= e($ord['order_code']); ?>
+                    </a>
+                  </td>
+                  <td class="small text-dark">
+                    <?= date('M d, Y', strtotime($ord['order_date'])); ?>
+                  </td>
+                  <td class="text-end font-monospace fw-bold text-dark">
+                    <?= formatMoney($ord['grand_total']); ?>
+                  </td>
+                  <td class="text-end font-monospace text-success">
+                    <?= formatMoney($ord['paid_amount']); ?>
+                  </td>
+                  <td class="text-end font-monospace <?= (float)$ord['due_amount'] > 0 ? 'text-danger fw-bold' : 'text-muted'; ?>">
+                    <?= formatMoney($ord['due_amount']); ?>
+                  </td>
+                  <td class="text-center">
+                    <?= getOrderStatusBadge($ord['status']); ?>
+                  </td>
+                  <td class="text-end pe-3">
+                    <a href="<?= BASE_URL; ?>modules/orders/view.php?id=<?= $ord['id']; ?>" class="btn btn-sm btn-outline-secondary py-0 px-2" title="View Order">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      <?php endif; ?>
     </div>
   </div>
 </div>

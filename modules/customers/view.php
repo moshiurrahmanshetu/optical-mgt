@@ -49,6 +49,16 @@ $rxStmt = $pdo->prepare("
 ");
 $rxStmt->execute(['customer_id' => $id]);
 $prescriptions = $rxStmt->fetchAll();
+
+// Fetch Customer's Order History (Efficient single query)
+$orderStmt = $pdo->prepare("
+    SELECT *
+    FROM orders
+    WHERE customer_id = :customer_id
+    ORDER BY order_date DESC, id DESC
+");
+$orderStmt->execute(['customer_id' => $id]);
+$customerOrders = $orderStmt->fetchAll();
 ?>
 
 <!-- Header Actions & Breadcrumbs -->
@@ -71,15 +81,20 @@ $prescriptions = $rxStmt->fetchAll();
   </div>
   
   <div class="d-flex flex-wrap gap-2">
+    <!-- Create Order Button -->
+    <a href="<?= BASE_URL; ?>modules/orders/create.php?customer_id=<?= $customer['id']; ?>" class="btn btn-primary d-inline-flex align-items-center gap-1 shadow-sm">
+      <i class="bi bi-cart-plus-fill"></i> Create Order
+    </a>
+
     <!-- Add Prescription Button -->
     <?php if ($canManageRx): ?>
       <a href="<?= BASE_URL; ?>modules/prescriptions/create.php?customer_id=<?= $customer['id']; ?>" class="btn btn-success d-inline-flex align-items-center gap-1">
-        <i class="bi bi-file-earmark-plus-fill"></i> Add Prescription (Rx)
+        <i class="bi bi-file-earmark-plus-fill"></i> Add Rx
       </a>
     <?php endif; ?>
 
     <!-- Edit Button -->
-    <a href="<?= BASE_URL; ?>modules/customers/edit.php?id=<?= $customer['id']; ?>" class="btn btn-primary d-inline-flex align-items-center gap-1">
+    <a href="<?= BASE_URL; ?>modules/customers/edit.php?id=<?= $customer['id']; ?>" class="btn btn-outline-primary d-inline-flex align-items-center gap-1">
       <i class="bi bi-pencil-square"></i> Edit Customer
     </a>
 
@@ -288,20 +303,78 @@ $prescriptions = $rxStmt->fetchAll();
         </div>
       </div>
 
-      <!-- Orders & Billing Section (Phase 4 Placeholder) -->
+      <!-- Live Orders & Billing Section -->
       <div class="col-12">
         <div class="card shadow-sm">
           <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 fw-semibold text-dark">
-              <i class="bi bi-cart-check me-2 text-primary"></i> Orders & Billing History
-            </h6>
-            <span class="badge bg-light text-secondary border">Phase 4 Module</span>
+            <div class="d-flex align-items-center gap-2">
+              <h6 class="m-0 fw-semibold text-dark">
+                <i class="bi bi-cart-check-fill me-2 text-primary"></i> Orders &amp; Dispensing History
+              </h6>
+              <span class="badge bg-light text-dark border"><?= count($customerOrders); ?> <?= count($customerOrders) === 1 ? 'Order' : 'Orders'; ?></span>
+            </div>
+            <a href="<?= BASE_URL; ?>modules/orders/create.php?customer_id=<?= $customer['id']; ?>" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+              <i class="bi bi-plus-circle"></i> Create Order
+            </a>
           </div>
-          <div class="card-body p-4">
-            <p class="text-muted small m-0">
-              Dispensed frames, prescription lenses, payment history, and invoices for <?= e($customer['full_name']); ?> will link here upon Phase 4 completion.
-            </p>
-          </div>
+
+          <?php if (empty($customerOrders)): ?>
+            <div class="card-body text-center py-4">
+              <div class="text-muted mb-2"><i class="bi bi-cart-x fs-2 text-secondary"></i></div>
+              <h6 class="fw-semibold text-dark mb-1">No order history available</h6>
+              <p class="text-muted small mb-3">No optical orders or billing transactions exist yet for this customer.</p>
+              <a href="<?= BASE_URL; ?>modules/orders/create.php?customer_id=<?= $customer['id']; ?>" class="btn btn-sm btn-primary">
+                <i class="bi bi-cart-plus me-1"></i> Place First Order
+              </a>
+            </div>
+          <?php else: ?>
+            <div class="table-responsive">
+              <table class="table table-custom table-hover align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th class="ps-3">Order Code</th>
+                    <th>Date</th>
+                    <th class="text-end">Total</th>
+                    <th class="text-end">Paid</th>
+                    <th class="text-end">Due</th>
+                    <th class="text-center">Status</th>
+                    <th class="text-end pe-3">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($customerOrders as $ord): ?>
+                    <tr>
+                      <td class="ps-3">
+                        <a href="<?= BASE_URL; ?>modules/orders/view.php?id=<?= $ord['id']; ?>" class="font-monospace fw-bold text-primary text-decoration-none">
+                          <?= e($ord['order_code']); ?>
+                        </a>
+                      </td>
+                      <td class="small text-dark">
+                        <?= date('M d, Y', strtotime($ord['order_date'])); ?>
+                      </td>
+                      <td class="text-end font-monospace fw-bold text-dark">
+                        <?= formatMoney($ord['grand_total']); ?>
+                      </td>
+                      <td class="text-end font-monospace text-success">
+                        <?= formatMoney($ord['paid_amount']); ?>
+                      </td>
+                      <td class="text-end font-monospace <?= (float)$ord['due_amount'] > 0 ? 'text-danger fw-bold' : 'text-muted'; ?>">
+                        <?= formatMoney($ord['due_amount']); ?>
+                      </td>
+                      <td class="text-center">
+                        <?= getOrderStatusBadge($ord['status']); ?>
+                      </td>
+                      <td class="text-end pe-3">
+                        <a href="<?= BASE_URL; ?>modules/orders/view.php?id=<?= $ord['id']; ?>" class="btn btn-sm btn-outline-secondary py-0 px-2" title="View Order">
+                          <i class="bi bi-eye"></i>
+                        </a>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          <?php endif; ?>
         </div>
       </div>
     </div>

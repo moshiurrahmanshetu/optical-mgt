@@ -1,0 +1,29 @@
+# ==============================================================================
+# Disallow Script Execution in Uploads Directory
+# ==============================================================================
+
+# Disable PHP script engine if supported
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+
+# Remove script handlers
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .cgi .pl .asp .aspx .shtml
+
+# Force MIME type for static images only
+<FilesMatch "\.(jpg|jpeg|png|webp|svg)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+
+# Deny everything else
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|php8|phps|cgi|pl|asp|aspx|shtml|sh|bash|exe|cmd|bat)$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>

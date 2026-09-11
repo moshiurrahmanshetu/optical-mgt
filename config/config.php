@@ -62,3 +62,25 @@ function initSession(): void {
         session_start();
     }
 }
+
+/**
+ * Check if the application has completed installation and is locked
+ *
+ * @return bool
+ */
+function isInstalled(): bool {
+    $lockFile = CONFIG_PATH . '/installed.php';
+    if (!file_exists($lockFile)) {
+        return false;
+    }
+    $lockData = @include $lockFile;
+    return is_array($lockData) && !empty($lockData['installed']);
+}
+
+// Auto-redirect to installer if application is not yet installed (for HTTP web requests)
+if (!defined('IN_INSTALLER') && (php_sapi_name() !== 'cli')) {
+    if (!isInstalled()) {
+        header('Location: ' . BASE_URL . 'install/');
+        exit;
+    }
+}

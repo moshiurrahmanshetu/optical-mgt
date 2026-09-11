@@ -1,0 +1,221 @@
+/**
+ * Optical Shop Management CMS (optical-mgt)
+ * WordPress-Style One-Click Installer CSS
+ * Clean, solid-color styling (zero gradients)
+ */
+
+body {
+    background-color: #f1f5f9;
+    color: #0f172a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.installer-container {
+    max-width: 780px;
+    margin: 40px auto;
+    padding: 0 15px;
+    width: 100%;
+}
+
+.installer-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 25px;
+}
+
+.installer-logo .logo-icon {
+    width: 44px;
+    height: 44px;
+    background-color: #0284c7;
+    color: #ffffff;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.installer-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    overflow: hidden;
+}
+
+.installer-header {
+    background-color: #0f172a;
+    color: #ffffff;
+    padding: 24px 30px;
+    border-bottom: 1px solid #1e293b;
+}
+
+.installer-body {
+    padding: 30px;
+}
+
+.installer-footer {
+    background-color: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 18px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Step Progress Indicator */
+.step-progress {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 30px;
+    position: relative;
+    padding: 0 10px;
+}
+
+.step-progress::before {
+    content: '';
+    position: absolute;
+    top: 15px;
+    left: 20px;
+    right: 20px;
+    height: 2px;
+    background-color: #e2e8f0;
+    z-index: 1;
+}
+
+.step-item {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    flex: 1;
+}
+
+.step-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    border: 2px solid #cbd5e1;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 6px;
+    font-size: 13px;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.step-item.active .step-circle {
+    background-color: #0284c7;
+    border-color: #0284c7;
+    color: #ffffff;
+}
+
+.step-item.completed .step-circle {
+    background-color: #10b981;
+    border-color: #10b981;
+    color: #ffffff;
+}
+
+.step-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.step-item.active .step-label {
+    color: #0284c7;
+    font-weight: 700;
+}
+
+.step-item.completed .step-label {
+    color: #10b981;
+}
+
+/* Requirements Table */
+.req-table th {
+    background-color: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 10px 15px;
+}
+
+.req-table td {
+    padding: 12px 15px;
+    vertical-align: middle;
+    font-size: 13px;
+}
+
+.badge-pass {
+    background-color: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+.badge-fail {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+/* Radio Option Cards */
+.source-option-card {
+    border: 2px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.source-option-card:hover {
+    border-color: #cbd5e1;
+}
+
+.source-option-card.selected {
+    border-color: #0284c7;
+    background-color: #f0f9ff;
+}
+
+/* Form Styles */
+.form-label {
+    font-weight: 600;
+    font-size: 13px;
+    color: #334155;
+    margin-bottom: 4px;
+}
+
+.form-control, .form-select {
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #0284c7;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.installer-copyright {
+    text-align: center;
+    color: #64748b;
+    font-size: 12px;
+    margin-top: 25px;
+}
